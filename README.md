@@ -4,7 +4,6 @@ A prompt booster for the [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 
 English | [简体中文](./README.zh-CN.md)
 
-> This plugin is a modified version of [rongxingda/dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) (Apache-2.0). It keeps the original's preview panel, undo, draft guards and rate limits; what changed is listed under [Differences from the original](#differences-from-the-original) and in the [CHANGELOG](./CHANGELOG.md).
 
 ![Right-click menu: boost modes and the boost model](docs/images/menu-light.png)
 
@@ -34,7 +33,7 @@ dsh plugin --profile web add github:HanYu-me/dsh-prompt-booster
 
 A prebuilt `dsh-prompt-booster.tgz` is also attached to each [release](https://github.com/HanYu-me/dsh-prompt-booster/releases). Restart dsh after installing.
 
-> If the original `dsh-prompt-enhance` is installed too, disable one of them: both add a composer button and share the default shortcut (`Ctrl+Alt+E`).
+> If `dsh-prompt-enhance` is installed too, disable one of them: both add a composer button and share the default shortcut (`Ctrl+Alt+E`).
 
 Uninstall: `dsh plugin --profile web remove dsh-prompt-booster`, then restart dsh.
 
@@ -80,16 +79,6 @@ Edited on dsh's plugin configuration page (`prompt-boost`); changes apply to the
 - The boost-model choice is stored in the browser (localStorage).
 - The plugin's HTTP routes only accept loopback requests.
 
-## Differences from the original
-
-On top of dsh-prompt-enhance 0.3.2:
-
-- Right-click mode menu, eight built-in modes, a mode editor with custom modes (stored on the host), and `/boost @mode`.
-- Per-browser boost-model choice (only models in dsh's live catalog; the host checks it).
-- The quick boost is a light-touch rewrite and is applied in place by default (`quickApply`).
-- Fix: with providers that keep one live process per session (e.g. Oh My Claude), a boost request used to land in the current conversation as a turn. Boost calls no longer carry the session id.
-- Redesigned UI on dsh design tokens; the internal name is now `prompt-boost` (routes `/prompt-boost/*`, command `/boost`), so it can be installed alongside the original.
-
 ## Development
 
 ```bash
@@ -106,4 +95,4 @@ Browser-half changes need a rebuild and a page reload; host-half changes need a 
 
 ## License
 
-[Apache-2.0](./LICENSE). Original work © rongxingda (dsh-prompt-enhance); modifications © Yu Han. See [NOTICE](./NOTICE).
+[Apache-2.0](./LICENSE) © Yu Han

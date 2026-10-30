@@ -283,8 +283,7 @@ export function defaultDirectionOf(list: readonly Direction[], defaultId: string
 
 /**
  * Append one direction to a system prompt. An empty instruction (the general
- * direction) returns the prompt unchanged, so a plain click keeps exactly the
- * upstream plugin's instructions.
+ * direction) returns the prompt unchanged.
  * @param system - the system prompt so far.
  * @param direction - the chosen direction.
  * @returns the system prompt of the call.

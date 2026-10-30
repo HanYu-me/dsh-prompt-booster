@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt-booster",
-  "description": "Prompt booster for the DeepSeek Harness (dsh) web GUI: one click lightly polishes the composer draft in place (undoable); right-click picks a boost mode (concise, structured, coding, research, academic, English …), edits each mode's template or adds new ones, and chooses which model does the rewrite. Fork of dsh-prompt-enhance.",
+  "description": "Prompt booster for the DeepSeek Harness (dsh) web GUI: one click lightly polishes the composer draft in place (undoable); right-click picks a boost mode (concise, structured, coding, research, academic, English …), edits each mode's template or adds new ones, and chooses which model does the rewrite.",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -77,8 +77,7 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
-    "CHANGELOG.md",
-    "NOTICE"
+    "CHANGELOG.md"
   ],
   "license": "Apache-2.0",
   "keywords": [

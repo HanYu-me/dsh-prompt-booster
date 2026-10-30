@@ -4,7 +4,6 @@
 
 [English](./README.md) | 简体中文
 
-> 本插件基于 [rongxingda/dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance)（Apache-2.0）修改而来，保留了原插件的预览面板、撤销、草稿保护、限流等能力。改动内容见下方「与原插件的区别」和 [CHANGELOG](./CHANGELOG.md)。
 
 ![右键菜单：提升模式列表与提升模型](docs/images/menu-light.png)
 
@@ -34,7 +33,7 @@ dsh plugin --profile web add github:HanYu-me/dsh-prompt-booster
 
 也可以从 [Releases](https://github.com/HanYu-me/dsh-prompt-booster/releases) 下载预构建的 `dsh-prompt-booster.tgz` 安装。装好后重启 dsh。
 
-> 如果同时装了原插件 `dsh-prompt-enhance`，请停用其中一个：两者都会在输入框加按钮，默认快捷键也相同（`Ctrl+Alt+E`）。
+> 如果同时装了 `dsh-prompt-enhance`，请停用其中一个：两者都会在输入框加按钮，默认快捷键也相同（`Ctrl+Alt+E`）。
 
 卸载：`dsh plugin --profile web remove dsh-prompt-booster`，然后重启 dsh。
 
@@ -80,16 +79,6 @@ dsh plugin --profile web add github:HanYu-me/dsh-prompt-booster
 - 「提升模型」的选择存在浏览器本地（localStorage）。
 - 插件的接口只接受本机（loopback）请求。
 
-## 与原插件的区别
-
-在 dsh-prompt-enhance 0.3.2 的基础上：
-
-- 新增右键模式菜单、8 个内置模式、模式编辑器与自定义模式（后端存储）、`/boost @模式`。
-- 新增按浏览器选择提升模型（只能选 dsh 当前可用列表里的模型，后端会校验）。
-- 「初步提升」改为轻量改写，并默认直接替换输入框（`quickApply`）。
-- 修复：通过 Oh My Claude 等「按会话常驻进程」的模型提升时，提升请求会混进当前对话。现在提升请求不再携带会话 id。
-- 界面改用 dsh 设计变量并重新设计；插件内部名改为 `prompt-boost`（接口 `/prompt-boost/*`，命令 `/boost`），可以和原插件同时安装。
-
 ## 开发
 
 ```bash
@@ -106,4 +95,4 @@ dsh plugin --profile web add link:$PWD
 
 ## 许可
 
-[Apache-2.0](./LICENSE)。原作 © rongxingda（dsh-prompt-enhance），修改部分 © Yu Han，见 [NOTICE](./NOTICE)。
+[Apache-2.0](./LICENSE) © Yu Han
