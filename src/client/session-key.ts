@@ -19,7 +19,7 @@
  * The server route receives the REAL id only when the host provides it;
  * otherwise it degrades to the harness default model (`sessionRouteOf`
  * undefined branch), which is the documented fallback.
- * @module dsh-prompt-enhance/client/session-key
+ * @module dsh-prompt-boost/client/session-key
  */
 
 import { useRef } from 'react'

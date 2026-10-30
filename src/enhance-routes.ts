@@ -1,20 +1,24 @@
 /**
- * The POST /prompt-enhance/enhance host route: the browser half's single
+ * The POST /prompt-boost/enhance host route: the browser half's single
  * seam. Loopback-fenced, body-capped, per-request config re-read (settings
  * changes land on the very next call), route resolved by precedence
  * (settings pair → session request header → harness default model).
- * @module dsh-prompt-enhance/enhance-routes
+ * @module dsh-prompt-boost/enhance-routes
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import { ENHANCE_ENDPOINT, ENHANCE_PREFIX, ENHANCE_STREAM_ENDPOINT } from './shared/protocol'
+import { DIRECTIONS_ENDPOINT, ENHANCE_ENDPOINT, ENHANCE_PREFIX, ENHANCE_STREAM_ENDPOINT, MODELS_ENDPOINT, type DirectionList } from './shared/protocol'
+import { createMemoryStore, type DirectionStore } from './direction-store'
+import { resolveRoute, type RoutePair } from './enhancer'
+import { buildModelCatalog, catalogFaceOf, isModelAvailable } from './models'
 import { createStreamNormalizer } from './shared/stream-text'
 import { createSseWriter } from './sse'
 import { checkInputText } from './shared/validate'
 import { type Config } from './config'
+import { MAX_DIRECTIONS, MAX_SAVED_DIRECTIONS, checkSavedInput, defaultDirectionOf, findDirection, newDirectionId, resolveDirections } from './shared/directions'
 import { toEnhanceError } from './enhancer'
-import { runEnhance, sessionRouteOf } from './orchestrate'
+import { defaultRouteOf, runEnhance, sessionRouteOf } from './orchestrate'
 import { isTrustedRequest } from './loopback'
 import { readBoundedJson, writeJson, endResponse } from './http'
 
@@ -46,6 +50,165 @@ interface AdmissionGate {
   cooldownUntil: number
 }
 
+/** Body cap of a mode create/save: a 4000-char template, JSON-escaped, with slack. */
+const DIRECTION_BODY_CAP = 64 * 1024
+
+/**
+ * The effective mode list as the routes answer it.
+ * @param config - the resolved config.
+ * @param store - the saved modes.
+ * @param createdId - the id of a mode just created, echoed back.
+ * @returns the list value.
+ */
+function directionListOf(config: Config, store: DirectionStore, createdId?: string): DirectionList {
+  const directions = resolveDirections(config.customDirections, store.read())
+  return {
+    directions,
+    defaultId: defaultDirectionOf(directions, config.defaultDirection).id,
+    ...(createdId !== undefined ? { createdId } : {}),
+  }
+}
+
+/**
+ * Serve the mode editor routes. Same loopback fence as every route here (the
+ * caller checked it); writes go to the host store, never to the settings
+ * textarea, which stays a read-only lower layer.
+ * @param readConfig - per-request config reader.
+ * @param store - the saved modes.
+ * @param pathname - `/prompt-boost/directions` or `/prompt-boost/directions/<id>`.
+ * @param req - the incoming request.
+ * @param res - the outgoing response.
+ */
+async function serveDirections(readConfig: () => Config, store: DirectionStore, pathname: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  let config: Config
+  try {
+    config = readConfig()
+  } catch (error) {
+    writeJson(res, 500, { ok: false, error: { code: 'internal', message: `prompt-boost 配置无效：${error instanceof Error ? error.message : String(error)}` } })
+    return
+  }
+  const rawId = pathname === DIRECTIONS_ENDPOINT ? undefined : pathname.slice(DIRECTIONS_ENDPOINT.length + 1)
+  let id: string | undefined
+  try {
+    id = rawId === undefined ? undefined : decodeURIComponent(rawId)
+  } catch {
+    id = ''
+  }
+  const method = req.method ?? 'GET'
+  const allowed = id === undefined ? ['GET', 'POST'] : ['PUT', 'DELETE']
+  if (!allowed.includes(method)) {
+    writeJson(res, 405, { ok: false, error: { code: 'internal', message: `only ${allowed.join('/')} is allowed` } })
+    return
+  }
+  if (method === 'GET') {
+    writeJson(res, 200, { ok: true, value: directionListOf(config, store) })
+    return
+  }
+  const fail = (status: number, message: string): void => {
+    writeJson(res, status, { ok: false, error: { code: 'rejected', message } })
+  }
+  const saved = store.read()
+  const effective = resolveDirections(config.customDirections, saved)
+  const persist = (rows: typeof saved, createdId?: string): void => {
+    try {
+      store.write(rows)
+    } catch (error) {
+      writeJson(res, 500, { ok: false, error: { code: 'internal', message: `保存失败：${error instanceof Error ? error.message : String(error)}` } })
+      return
+    }
+    writeJson(res, 200, { ok: true, value: directionListOf(config, store, createdId) })
+  }
+
+  if (method === 'DELETE') {
+    const index = saved.findIndex((row) => row.id === id)
+    if (index < 0) {
+      if (findDirection(effective, id) !== undefined) fail(422, '这是内置模式或插件设置里定义的模式，不能删除；可以编辑它。')
+      else fail(404, '没有这个模式。')
+      return
+    }
+    persist(saved.filter((_, at) => at !== index))
+    return
+  }
+
+  // POST (create) / PUT (save): both carry { label, instruction }.
+  const contentType = req.headers['content-type']
+  if (contentType !== undefined && !String(contentType).toLowerCase().startsWith('application/json')) {
+    fail(415, '仅支持 application/json 请求体。')
+    return
+  }
+  let body: unknown
+  try {
+    body = await readBoundedJson(req, DIRECTION_BODY_CAP)
+  } catch (error) {
+    fail(error instanceof Error && error.message === 'body too large' ? 413 : 422, '请求体无效。')
+    return
+  }
+  const input = body as { label?: unknown; instruction?: unknown } | null
+  const problem = checkSavedInput(input?.label, input?.instruction)
+  if (problem !== undefined) {
+    fail(422, problem)
+    return
+  }
+  const row = { label: String(input?.label).trim(), instruction: String(input?.instruction).trim() }
+
+  if (method === 'POST') {
+    if (saved.length >= MAX_SAVED_DIRECTIONS || effective.length >= MAX_DIRECTIONS) {
+      fail(422, `模式数量已达上限（${Math.min(MAX_SAVED_DIRECTIONS, MAX_DIRECTIONS)} 个），请先删除一些自定义模式。`)
+      return
+    }
+    const createdId = newDirectionId(new Set(effective.map((direction) => direction.id)))
+    persist([...saved, { id: createdId, ...row }], createdId)
+    return
+  }
+
+  // PUT: only an existing mode can be saved (no minting ids through PUT).
+  if (id === undefined || findDirection(effective, id) === undefined) {
+    fail(404, '没有这个模式。')
+    return
+  }
+  const index = saved.findIndex((entry) => entry.id === id)
+  if (index < 0 && saved.length >= MAX_SAVED_DIRECTIONS) {
+    fail(422, `已保存的模式数量已达上限（${MAX_SAVED_DIRECTIONS} 个）。`)
+    return
+  }
+  const next = index < 0 ? [...saved, { id, ...row }] : saved.map((entry, at) => (at === index ? { id, ...row } : entry))
+  persist(next)
+}
+
+/**
+ * Serve the model catalog (GET). Same loopback fence as the enhance route; no
+ * admission gate, since listing models makes no billable call.
+ * @param ctx - registrant context (llm, optional sessions/settings).
+ * @param readConfig - per-request config reader (for the fallback route).
+ * @param req - the incoming request.
+ * @param res - the outgoing response.
+ */
+async function serveModels(ctx: Context, readConfig: () => Config, req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== 'GET') {
+    writeJson(res, 405, { ok: false, error: { code: 'internal', message: 'only GET is allowed' } })
+    return
+  }
+  const face = catalogFaceOf(ctx.get('llm'))
+  if (face === undefined) {
+    writeJson(res, 501, { ok: false, error: { code: 'internal', message: '当前 DSH 版本的模型服务不支持列出模型。' } })
+    return
+  }
+  const sessionParam = new URL(req.url ?? '/', 'http://x').searchParams.get('sessionId')
+  const sessionId = sessionParam !== null && sessionParam !== '' ? sessionParam : undefined
+  let fallback: RoutePair | undefined
+  try {
+    fallback = resolveRoute(readConfig(), sessionRouteOf(ctx, sessionId), defaultRouteOf(ctx))
+  } catch {
+    // An invalid settings section only loses the "follow" label, not the list.
+    fallback = undefined
+  }
+  try {
+    writeJson(res, 200, { ok: true, value: await buildModelCatalog(face, fallback) })
+  } catch (error) {
+    writeJson(res, 502, { ok: false, error: { code: 'upstream', message: error instanceof Error ? error.message : String(error) } })
+  }
+}
+
 /**
  * Serve one enhance POST against the request envelope.
  * @param ctx - registrant context (llm, optional sessions/settings).
@@ -58,9 +221,17 @@ interface AdmissionGate {
  *   instead of one JSON envelope. Both modes share the whole admission path;
  *   only the response shape differs.
  */
-async function serveEnhance(ctx: Context, readConfig: () => Config, gate: AdmissionGate, pathname: string, req: IncomingMessage, res: ServerResponse, stream: boolean): Promise<void> {
+async function serveEnhance(ctx: Context, readConfig: () => Config, gate: AdmissionGate, pathname: string, req: IncomingMessage, res: ServerResponse, stream: boolean, store: DirectionStore): Promise<void> {
   if (!isTrustedRequest(req)) {
     writeJson(res, 403, { ok: false, error: { code: 'internal', message: 'forbidden: loopback-only' } })
+    return
+  }
+  if (pathname === MODELS_ENDPOINT) {
+    await serveModels(ctx, readConfig, req, res)
+    return
+  }
+  if (pathname === DIRECTIONS_ENDPOINT || pathname.startsWith(`${DIRECTIONS_ENDPOINT}/`)) {
+    await serveDirections(readConfig, store, pathname, req, res)
     return
   }
   // One route, two exact endpoints (one-shot JSON / incremental SSE):
@@ -84,7 +255,7 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
   } catch (error) {
     // resolveConfig fails loud on an invalid section — surface it instead of
     // letting the rejection escape the handler.
-    writeJson(res, 500, { ok: false, error: { code: 'internal', message: `prompt-enhance 配置无效：${error instanceof Error ? error.message : String(error)}` } })
+    writeJson(res, 500, { ok: false, error: { code: 'internal', message: `prompt-boost 配置无效：${error instanceof Error ? error.message : String(error)}` } })
     return
   }
   // Fail before reading the body when the plugin is switched off.
@@ -119,10 +290,42 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
     })
     return
   }
-  const record = body as { sessionId?: unknown; text?: unknown } | null
+  const record = body as { sessionId?: unknown; text?: unknown; direction?: unknown; provider?: unknown; model?: unknown } | null
   if (record === null || typeof record !== 'object' || typeof record.text !== 'string') {
-    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: '请求体必须是 { sessionId?, text } JSON。' } })
+    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: '请求体必须是 { sessionId?, text, direction? } JSON。' } })
     return
+  }
+  // The client sends a direction id only, never instruction text: the
+  // instruction is looked up here from the operator's settings, so the page
+  // cannot smuggle arbitrary text into the system prompt.
+  if (record.direction !== undefined && typeof record.direction !== 'string') {
+    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: 'direction 必须是字符串。' } })
+    return
+  }
+  const directions = resolveDirections(config.customDirections, store.read())
+  const direction = record.direction === undefined || record.direction === ''
+    ? defaultDirectionOf(directions, config.defaultDirection)
+    : findDirection(directions, record.direction)
+  if (direction === undefined) {
+    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: `未知的提升方向：${String(record.direction).slice(0, 40)}（请检查插件设置里的自定义方向）` } })
+    return
+  }
+  // A model chosen in the menu: a pair, and only one the live catalog lists,
+  // so the page cannot route a boost to an arbitrary provider/model string.
+  let routeOverride: RoutePair | undefined
+  const hasProvider = record.provider !== undefined && record.provider !== ''
+  const hasModel = record.model !== undefined && record.model !== ''
+  if (hasProvider || hasModel) {
+    if (!hasProvider || !hasModel || typeof record.provider !== 'string' || typeof record.model !== 'string') {
+      writeJson(res, 422, { ok: false, error: { code: 'rejected', message: 'provider 与 model 必须成对提供（字符串）。' } })
+      return
+    }
+    const face = catalogFaceOf(ctx.get('llm'))
+    if (face === undefined || !(await isModelAvailable(face, record.provider, record.model))) {
+      writeJson(res, 422, { ok: false, error: { code: 'rejected', message: `所选模型 ${record.provider.slice(0, 60)} / ${record.model.slice(0, 80)} 当前不可用，请右键按钮重新选择模型。` } })
+      return
+    }
+    routeOverride = { provider: record.provider, model: record.model }
   }
   const sessionId = typeof record.sessionId === 'string' && record.sessionId !== '' ? record.sessionId : undefined
   const check = checkInputText(record.text, config.maxInputChars)
@@ -205,6 +408,8 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
       text: record.text,
       sessionRoute: sessionRouteOf(ctx, sessionId),
       signal: callerAbort.signal,
+      direction,
+      ...routeOverride !== undefined ? { routeOverride } : {},
       ...sessionId !== undefined ? { sessionId } : {},
     }
     if (stream) {
@@ -308,7 +513,7 @@ interface RouteMount {
 const mounts = new WeakMap<Context, RouteMount>()
 
 /**
- * Register the /prompt-enhance prefix route on the shared webserver.
+ * Register the /prompt-boost prefix route on the shared webserver.
  *
  * Two lifetime rules, both learned the hard way:
  *
@@ -328,7 +533,7 @@ const mounts = new WeakMap<Context, RouteMount>()
  * @param ctx - registrant context.
  * @param readConfig - per-request config reader so settings changes apply immediately.
  */
-export function registerEnhanceRoute(ctx: Context, readConfig: () => Config): void {
+export function registerEnhanceRoute(ctx: Context, readConfig: () => Config, store: DirectionStore = createMemoryStore()): void {
   ctx.inject(['webServer'], (routeCtx: Context) => {
     const webserver = routeCtx.get('webServer') as unknown as {
       register(route: unknown): unknown
@@ -356,7 +561,7 @@ export function registerEnhanceRoute(ctx: Context, readConfig: () => Config): vo
         path: ENHANCE_PREFIX,
         handler: (req: IncomingMessage, res: ServerResponse): Promise<void> => {
           const pathname = new URL(req.url ?? '/', 'http://x').pathname
-          return serveEnhance(ctx, readConfig, gate, pathname, req, res, pathname === ENHANCE_STREAM_ENDPOINT)
+          return serveEnhance(ctx, readConfig, gate, pathname, req, res, pathname === ENHANCE_STREAM_ENDPOINT, store)
         },
       })
       const disposed = typeof dispose === 'function' ? dispose as () => void : (): void => {}
@@ -372,6 +577,6 @@ export function registerEnhanceRoute(ctx: Context, readConfig: () => Config): vo
           // Already torn down with the old service.
         }
       }
-    }, 'prompt-enhance: enhance route')
+    }, 'prompt-boost: enhance route')
   })
 }

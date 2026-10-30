@@ -2,7 +2,7 @@
  * Output normalization for the model's rewritten prompt. The system prompt
  * already demands a bare body; this is the second line of defense against
  * fences, stray whitespace, and degenerate empties.
- * @module dsh-prompt-enhance/shared/normalize
+ * @module dsh-prompt-boost/shared/normalize
  */
 
 /** Three or more consecutive newlines collapse to one blank line. */

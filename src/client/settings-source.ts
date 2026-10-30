@@ -17,7 +17,7 @@
  * Sources are probed in that order and ranked, so a host that mounts several
  * of them keeps the most authoritative one and never thrashes between two
  * documents. Absent all three, the bundled mirror keeps the UI working.
- * @module dsh-prompt-enhance/client/settings-source
+ * @module dsh-prompt-boost/client/settings-source
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -141,7 +141,7 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
     const resolveEntryId = (): string | undefined => {
       const served = servedNamespaces(forms)
       return options.rowIds.find((id) => served.includes(id))
-        ?? served.find((ns) => ns.includes('prompt-enhance'))
+        ?? served.find((ns) => ns.includes('prompt-boost'))
         ?? options.rowIds[0]
     }
 
@@ -189,7 +189,7 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
       } catch {
         // Service already gone.
       }
-    }, 'prompt-enhance: settings form mirror')
+    }, 'prompt-boost: settings form mirror')
     try {
       const watch = forms.describe?.()?.subscribe?.(() => bind())
       if (typeof watch === 'function') {
@@ -199,7 +199,7 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
           } catch {
             // Service already gone.
           }
-        }, 'prompt-enhance: settings namespace watch')
+        }, 'prompt-boost: settings namespace watch')
       }
     } catch {
       // A describe face without a subscription still leaves the first bind.
@@ -233,7 +233,7 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
       } catch {
         // Service already gone.
       }
-    }, 'prompt-enhance: settings binder mirror')
+    }, 'prompt-boost: settings binder mirror')
   })
 
   // 3. 0.1.1-rc: the element-level settings scope.
@@ -247,7 +247,7 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
     try {
       // The decode hook is the legacy scope's way of narrowing the section;
       // passing the raw value through keeps one decoder in this plugin.
-      bound = scope.bind({ namespace: options.rowIds[0] ?? 'prompt-enhance', decode: (value: unknown) => value })
+      bound = scope.bind({ namespace: options.rowIds[0] ?? 'prompt-boost', decode: (value: unknown) => value })
     } catch {
       return
     }
@@ -264,6 +264,6 @@ export function installClientSettingsSource(ctx: ClientContext, options: ClientS
       } catch {
         // Service already gone.
       }
-    }, 'prompt-enhance: settings scope mirror')
+    }, 'prompt-boost: settings scope mirror')
   })
 }

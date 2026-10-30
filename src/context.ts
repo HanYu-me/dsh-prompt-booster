@@ -10,7 +10,7 @@
  * - **Fail open to the original behaviour.** No session, no history, an empty
  *   window, or a session-layer throw all yield `undefined`, which makes the
  *   caller fall back to the plain single-prompt enhancement untouched.
- * @module dsh-prompt-enhance/context
+ * @module dsh-prompt-boost/context
  */
 
 import { countText } from './shared/validate'

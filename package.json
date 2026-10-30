@@ -1,7 +1,7 @@
 {
-  "name": "dsh-prompt-enhance",
-  "description": "Prompt enhancement for the dsh web GUI: rewrite the composer draft into a well-structured prompt through the harness LLM service, preview the before/after, then fill back, copy, or undo. Original draft is always preserved.",
-  "version": "0.3.2",
+  "name": "dsh-prompt-booster",
+  "description": "Prompt booster for the DeepSeek Harness (dsh) web GUI: one click lightly polishes the composer draft in place (undoable); right-click picks a boost mode (concise, structured, coding, research, academic, English …), edits each mode's template or adds new ones, and chooses which model does the rewrite. Fork of dsh-prompt-enhance.",
+  "version": "0.1.0",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -75,9 +75,10 @@
     "lib/**/*.js.map",
     "src",
     "cordis.patch.yml",
-    "docs",
     "README.md",
-    "README.zh-CN.md"
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "NOTICE"
   ],
   "license": "Apache-2.0",
   "keywords": [
@@ -85,25 +86,29 @@
     "dsh",
     "dsh-plugin",
     "prompt",
-    "prompt-enhancement"
+    "prompt-enhancement",
+    "prompt-optimizer",
+    "prompt-booster"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rongxingda/dsh-prompt-enhance.git"
+    "url": "git+https://github.com/HanYu-me/dsh-prompt-booster.git"
   },
   "bugs": {
-    "url": "https://github.com/rongxingda/dsh-prompt-enhance/issues"
+    "url": "https://github.com/HanYu-me/dsh-prompt-booster/issues"
   },
-  "homepage": "https://github.com/rongxingda/dsh-prompt-enhance#readme",
+  "homepage": "https://github.com/HanYu-me/dsh-prompt-booster#readme",
   "scripts": {
     "build": "tsc -p . && node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
     "typecheck": "tsc -p . --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run check-release && npm run build && npm test",
+    "check-release": "node scripts/check-release.mjs"
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "author": "Yu Han"
 }

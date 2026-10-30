@@ -54,13 +54,17 @@ vi.mock('../src/client/enhance-client', () => ({
   },
   requestEnhance: vi.fn(),
   requestEnhanceStream: vi.fn(),
+  fetchDirections: vi.fn(() => new Promise(() => {})),
+  createDirection: vi.fn(),
+  saveDirection: vi.fn(),
+  deleteDirection: vi.fn(),
 }))
 
 const t = ((key: string, params?: Record<string, unknown>): string => {
   let s = (zh as Record<string, string>)[key] ?? key
   for (const [name, value] of Object.entries(params ?? {})) s = s.split(`{${name}}`).join(String(value))
   return s
-}) as TranslateNS<'prompt-enhance'>
+}) as TranslateNS<'prompt-boost'>
 
 /** Minimal fake of the per-session input machine store: synchronous, like the real one. */
 function makeFakeInput(initial: Partial<InputState> & { draft: string }) {
@@ -108,14 +112,14 @@ function renderComposer(
   )
 }
 
-const enhanceButton = (): HTMLButtonElement => screen.getByRole('button', { name: zh['button.title'] }) as HTMLButtonElement
+const enhanceButton = (): HTMLButtonElement => screen.getByRole('button', { name: zh['button.title'].replace('{label}', '初步提升').replace('{model}', '跟随默认') }) as HTMLButtonElement
 
 // The one-shot path is the baseline every existing assertion was written
 // against; the incremental path gets its own describe with streaming on.
 beforeEach(() => {
   vi.mocked(requestEnhance).mockReset()
   vi.mocked(requestEnhanceStream).mockReset()
-  setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false })
+  setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, quickApply: false })
 })
 
 describe('dsh 0.1.2-rc.1 dual-compat (host omits sessionId)', () => {
@@ -134,7 +138,7 @@ describe('dsh 0.1.2-rc.1 dual-compat (host omits sessionId)', () => {
     fireEvent.click(enhanceButton())
     expect(await screen.findByText('增强文本')).toBeTruthy()
     // No host id → the server degrades to the harness default model route.
-    expect(requestEnhance).toHaveBeenCalledWith({ sessionId: undefined, text: '旧原文' }, expect.anything())
+    expect(requestEnhance).toHaveBeenCalledWith({ sessionId: undefined, text: '旧原文', direction: 'general' }, expect.anything())
 
     fireEvent.click(screen.getByRole('button', { name: zh['panel.apply'] }))
     expect(setDraft).toHaveBeenCalledWith('增强文本')
@@ -219,7 +223,7 @@ describe('enhance → apply → undo loop', () => {
 
     fireEvent.click(enhanceButton())
     expect(await screen.findByText('增强文本')).toBeTruthy()
-    expect(requestEnhance).toHaveBeenCalledWith({ sessionId: 's1', text: '旧原文' }, expect.anything())
+    expect(requestEnhance).toHaveBeenCalledWith({ sessionId: 's1', text: '旧原文', direction: 'general' }, expect.anything())
 
     fireEvent.click(screen.getByRole('button', { name: zh['panel.apply'] }))
     expect(setDraft).toHaveBeenCalledWith('增强文本')
@@ -242,11 +246,11 @@ describe('enhance → apply → undo loop', () => {
     await screen.findByText('增强文本')
     // User edits during the result view → stale warning appears…
     act(() => { input.set({ draft: '编辑后的新文本' }) })
-    expect(await screen.findByText(`⚠ ${zh['panel.stale.warn']}`)).toBeTruthy()
+    expect(await screen.findByText(zh["panel.stale.warn"])).toBeTruthy()
     // …and disappears again when the draft matches the source text.
     act(() => { input.set({ draft: '旧原文' }) })
     await screen.findByText(zh['panel.enhanced'])
-    expect(screen.queryByText(`⚠ ${zh['panel.stale.warn']}`)).toBeNull()
+    expect(screen.queryByText(zh["panel.stale.warn"])).toBeNull()
   })
 
   it('applying over a diverged draft pushes the CURRENT draft as undo original', async () => {
@@ -283,7 +287,7 @@ describe('incremental streaming display', () => {
   afterEach(cleanup)
 
   it('shows partial text while the call is in flight and settles on the final body', async () => {
-    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true })
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, quickApply: false })
     const input = makeFakeInput({ draft: '旧原文' })
     renderComposer(input, { setDraft: vi.fn() } as never, 's2')
     const result = { text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 }

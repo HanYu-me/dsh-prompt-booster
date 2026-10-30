@@ -84,9 +84,9 @@ describe('resolveConfig', () => {
     expect(resolved).not.toHaveProperty('legacySetting')
     expect(resolved.enabled).toBe(DEFAULT_CONFIG.enabled)
     expect(Object.keys(resolved).sort()).toEqual([
-      'contextAware', 'contextMaxChars', 'contextMaxMessages', 'enabled',
+      'contextAware', 'contextMaxChars', 'contextMaxMessages', 'customDirections', 'defaultDirection', 'enabled',
       'maxConcurrent', 'maxInputChars', 'maxOutputTokens', 'model',
-      'provider', 'rateLimitPerMinute',
+      'provider', 'quickApply', 'rateLimitPerMinute',
       'shortcut', 'strategyMode', 'streaming', 'systemPrompt', 'temperature', 'timeoutMs',
     ])
   })

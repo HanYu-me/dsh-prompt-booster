@@ -2,13 +2,14 @@
  * Plugin configuration: one schemastery schema rendered automatically by
  * Settings → 插件配置, plus pure resolution/validation shared by the host
  * route, the slash command, and (mirrored defaults) the browser half.
- * @module dsh-prompt-enhance/config
+ * @module dsh-prompt-boost/config
  */
 
 import z from '@deepseek-ai/schemastery'
+import { BUILTIN_DIRECTIONS } from './shared/directions'
 
 /** Settings namespace of the plugin section. */
-export const PROMPT_ENHANCE_NAMESPACE = 'prompt-enhance'
+export const PROMPT_ENHANCE_NAMESPACE = 'prompt-boost'
 
 /** How a non-empty `systemPrompt` combines with the built-in strategy. */
 export type StrategyMode = 'replace-default' | 'extend-default'
@@ -62,6 +63,12 @@ export interface Config {
   contextMaxMessages: number
   /** Context window depth: character budget of the assembled history snippet; 0 admits none. */
   contextMaxChars: number
+  /** Direction a plain click (or the shortcut) uses; unknown ids fall back to `general`. */
+  defaultDirection: string
+  /** Operator-defined directions, one `id | 名称 | 指令` row per line. */
+  customDirections: string
+  /** The quick boost (general direction) replaces the draft directly, without the preview panel. */
+  quickApply: boolean
 }
 
 /** Field defaults, the source of truth for schema defaults and client mirrors. */
@@ -80,6 +87,9 @@ export const DEFAULT_CONFIG: Config = {
   contextAware: true,
   contextMaxMessages: 8,
   contextMaxChars: 4000,
+  defaultDirection: 'general',
+  customDirections: '',
+  quickApply: true,
 }
 
 /**
@@ -121,6 +131,9 @@ export const Config = z.object({
   contextAware: z.boolean().default(DEFAULT_CONFIG.contextAware).description('上下文感知：读取当前会话近期对话，用于消解指代、补全省略与术语约束；无历史或历史不足时自动回退为单条增强，不臆造信息').volatile(),
   contextMaxMessages: z.number().step(1).min(0).max(50).default(DEFAULT_CONFIG.contextMaxMessages).description('上下文窗口（条数）：最多参考最近多少条 user/assistant 轮次；0 表示不参考').volatile(),
   contextMaxChars: z.number().step(1).min(0).max(100000).default(DEFAULT_CONFIG.contextMaxChars).description('上下文窗口（字数）：历史片段的字符预算，从最新一条向前装配；0 表示不参考').volatile(),
+  defaultDirection: z.string().default(DEFAULT_CONFIG.defaultDirection).description(`左键单击和快捷键使用的提升方向 id。内置：${BUILTIN_DIRECTIONS.map((d) => `${d.id}（${d.label.zh}）`).join('、')}；也可以填自定义方向的 id。不存在的 id 按 general 处理`).volatile(),
+  quickApply: z.boolean().default(DEFAULT_CONFIG.quickApply).description('初步提升直接替换：选「初步提升」（含左键默认）时不弹出预览窗口，结果直接替换输入框内容，可点「撤销」恢复；关闭后和其他方向一样先预览').volatile(),
+  customDirections: z.string().role('textarea').default(DEFAULT_CONFIG.customDirections).description('自定义提升方向（右键菜单）：每行一个，格式「id | 名称 | 指令」，# 开头为注释。id 只能用小写字母、数字、- 和 _；与内置 id 相同则覆盖该内置方向。例：marketing | 营销文案 | 改写成面向消费者的营销文案需求，写明受众、卖点和语气').volatile(),
 })
 
 /**
@@ -135,21 +148,21 @@ export const Config = z.object({
  * @throws Error describing the first violated invariant.
  */
 export function resolveConfig(config: Config): Config {
-  if (config === null || typeof config !== 'object') throw new Error('prompt-enhance: configuration is required')
-  if (typeof config.enabled !== 'boolean') throw new Error('prompt-enhance: enabled 必须是布尔值')
+  if (config === null || typeof config !== 'object') throw new Error('prompt-boost: configuration is required')
+  if (typeof config.enabled !== 'boolean') throw new Error('prompt-boost: enabled 必须是布尔值')
   const hasProvider = config.provider !== undefined && config.provider !== ''
   const hasModel = config.model !== undefined && config.model !== ''
   if (hasProvider !== hasModel) {
-    throw new Error('prompt-enhance: provider 与 model 必须成对填写（要么都填，要么都留空以跟随当前会话模型）')
+    throw new Error('prompt-boost: provider 与 model 必须成对填写（要么都填，要么都留空以跟随当前会话模型）')
   }
   const provider = hasProvider ? (config.provider ?? '').trim() : config.provider
   const model = hasModel ? (config.model ?? '').trim() : config.model
   if ((hasProvider && provider === '') || (hasModel && model === '')) {
-    throw new Error('prompt-enhance: provider/model 覆盖必须是非空字符串')
+    throw new Error('prompt-boost: provider/model 覆盖必须是非空字符串')
   }
   const temperature = config.temperature
   if (typeof temperature !== 'number' || !Number.isFinite(temperature) || temperature < 0 || temperature > 1) {
-    throw new Error('prompt-enhance: temperature 必须是 0–1 之间的有限数字')
+    throw new Error('prompt-boost: temperature 必须是 0–1 之间的有限数字')
   }
   // Whitespace-only is "absent", not "set": the explicit pair is definitionally
   // non-empty, so a blank override strips away as `undefined` rather than
@@ -161,7 +174,7 @@ export function resolveConfig(config: Config): Config {
   }
   const intInRange = (value: unknown, name: string, min: number, max: number): number => {
     if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
-      throw new Error(`prompt-enhance: ${name} 必须是 ${min}–${max} 之间的整数`)
+      throw new Error(`prompt-boost: ${name} 必须是 ${min}–${max} 之间的整数`)
     }
     return value
   }
@@ -185,6 +198,11 @@ export function resolveConfig(config: Config): Config {
     contextAware: typeof config.contextAware === 'boolean' ? config.contextAware : DEFAULT_CONFIG.contextAware,
     contextMaxMessages: intInRange(config.contextMaxMessages, 'contextMaxMessages', 0, 50),
     contextMaxChars: intInRange(config.contextMaxChars, 'contextMaxChars', 0, 100000),
+    defaultDirection: typeof config.defaultDirection === 'string' && config.defaultDirection.trim() !== ''
+      ? config.defaultDirection.trim().toLowerCase()
+      : DEFAULT_CONFIG.defaultDirection,
+    customDirections: typeof config.customDirections === 'string' ? config.customDirections : '',
+    quickApply: typeof config.quickApply === 'boolean' ? config.quickApply : DEFAULT_CONFIG.quickApply,
   }
 }
 

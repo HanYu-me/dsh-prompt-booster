@@ -1,21 +1,61 @@
 /**
- * The `prompt-enhance` client locale namespace: zh (key-set source of truth)
+ * The `prompt-boost` client locale namespace: zh (key-set source of truth)
  * and en dictionaries for the composer button, preview panel, and undo bar.
- * @module dsh-prompt-enhance/client/locales
+ * @module dsh-prompt-boost/client/locales
  */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'button.title': '提示词增强（重写为结构化提示词）',
-  'button.busy': '正在增强…',
+  'meta.lang': 'zh',
+  'menu.title': '选择提升方向',
+  'menu.default': '默认',
+  'menu.empty': '没有可用的方向',
+  'panel.direction': '方向：{label}',
+  'menu.edit': '编辑「{label}」的模板',
+  'menu.add': '添加模式',
+  'menu.mine': '自定义',
+  'menu.edited': '已修改',
+  'editor.titleEdit': '编辑模式',
+  'editor.titleAdd': '添加模式',
+  'editor.label': '名称',
+  'editor.labelPlaceholder': '例如：产品需求',
+  'editor.template': '提升模板',
+  'editor.templatePlaceholder': '告诉模型这个模式要怎么改写，例如：改写成给产品经理看的需求说明，写明背景、目标用户和验收标准。',
+  'editor.help': '模板会追加在基础改写规则之后。无论模板怎么写，都不会改变你的原意、不会编造内容，也只会输出改写后的提示词。按 ⌘/Ctrl+Enter 保存。',
+  'editor.noteBuiltin': '这是内置模式。保存后以你的版本为准，之后可以随时恢复默认。',
+  'editor.noteSettings': '这个模式来自插件设置。在这里保存后以这里的版本为准，之后可以恢复成设置里的版本。',
+  'editor.save': '保存',
+  'editor.saving': '保存中…',
+  'editor.cancel': '取消',
+  'editor.restore': '恢复默认',
+  'editor.delete': '删除',
+  'editor.confirmDelete': '确认删除？',
+  'editor.failed': '保存失败：{message}',
+  'menu.model': '提升模型：{label}',
+  'menu.modelShort': '提升模型',
+  'menu.modelHint': '只用于提升提示词，不影响对话使用的模型',
+  'menu.back': '返回',
+  'menu.modelsTitle': '选择提升使用的模型',
+  'menu.follow': '跟随默认',
+  'menu.followHint': '当前会用：{label}',
+  'menu.followHintUnknown': '依次使用：插件设置 → 当前会话 → DSH 默认模型',
+  'menu.loading': '正在读取模型列表…',
+  'menu.loadFailed': '读取模型列表失败：{message}',
+  'menu.noModels': '没有可用的模型',
+  'menu.chosenUnavailable': '之前选的「{label}」已不在可用列表中，请重新选择',
+  'menu.providerFailed': '{name}：读取模型失败',
+  'button.title': '提示词提升（左键：{label}，模型：{model}；右键：选择方向和模型）',
+  'button.busy': '正在提升…',
+  'button.quickBusy': '正在提升…（再点一次取消）',
+  'quick.running': '正在提升，完成后会直接替换输入框内容…',
   'button.otherBusy': '另一个会话正在增强中；请等它完成或先关闭其结果面板。',
-  'panel.title': '提示词增强',
+  'panel.title': '提示词提升',
   'panel.loading': '正在增强，稍候…',
   'panel.streaming': '正在生成（边写边显示）…',
   'panel.loading.hint': '原文保留在输入框中，不会被动修改。',
   'panel.cancel': '取消',
   'panel.original': '原始提示词',
-  'panel.enhanced': '增强结果',
+  'panel.enhanced': '提升结果',
   'panel.apply': '回填到输入框',
   'panel.copy': '复制结果',
   'panel.copied': '已复制',
@@ -25,7 +65,7 @@ export const zh = {
   'panel.stale.warn': '草稿在增强期间有改动——增强结果基于增强前的文本。回填将覆盖你的最新编辑(撤销可恢复回填前的草稿)。',
   'panel.model': '模型：{provider} / {model}',
   'panel.elapsed': '耗时 {ms}',
-  'undo.applied': '已用增强结果替换原提示词',
+  'undo.applied': '已替换为提升后的内容',
   'undo.undo': '撤销',
   'undo.dismiss': '关闭提示',
   'error.empty': '输入框为空，请先输入要增强的提示词。',
@@ -57,16 +97,56 @@ export type PromptEnhanceKey = keyof typeof zh
 
 /** English dictionary. */
 export const en: Record<PromptEnhanceKey, string> = {
-  'button.title': 'Enhance prompt (rewrite into a structured prompt)',
-  'button.busy': 'Enhancing…',
+  'meta.lang': 'en',
+  'menu.title': 'Choose a boost direction',
+  'menu.default': 'default',
+  'menu.empty': 'No directions available',
+  'panel.direction': 'Direction: {label}',
+  'menu.edit': 'Edit the template of “{label}”',
+  'menu.add': 'Add a mode',
+  'menu.mine': 'custom',
+  'menu.edited': 'edited',
+  'editor.titleEdit': 'Edit mode',
+  'editor.titleAdd': 'Add a mode',
+  'editor.label': 'Name',
+  'editor.labelPlaceholder': 'e.g. Product spec',
+  'editor.template': 'Boost template',
+  'editor.templatePlaceholder': 'Tell the model how this mode should rewrite, e.g. turn it into a spec for a product manager with background, target users and acceptance criteria.',
+  'editor.help': 'The template is appended after the base rewrite rules. Whatever it says, the rewrite keeps your intent, invents nothing and outputs only the prompt. ⌘/Ctrl+Enter saves.',
+  'editor.noteBuiltin': 'A built-in mode. Once saved, your version is used; you can restore the default any time.',
+  'editor.noteSettings': 'This mode comes from the plugin settings. Once saved here, this version is used; you can restore the settings version.',
+  'editor.save': 'Save',
+  'editor.saving': 'Saving…',
+  'editor.cancel': 'Cancel',
+  'editor.restore': 'Restore default',
+  'editor.delete': 'Delete',
+  'editor.confirmDelete': 'Really delete?',
+  'editor.failed': 'Could not save: {message}',
+  'menu.model': 'Boost model: {label}',
+  'menu.modelShort': 'Boost model',
+  'menu.modelHint': 'Only used for boosting; the chat model is unchanged',
+  'menu.back': 'Back',
+  'menu.modelsTitle': 'Choose the model for boosting',
+  'menu.follow': 'Follow default',
+  'menu.followHint': 'Currently: {label}',
+  'menu.followHintUnknown': 'Plugin settings → this session → DSH default model',
+  'menu.loading': 'Loading models…',
+  'menu.loadFailed': 'Could not load models: {message}',
+  'menu.noModels': 'No models available',
+  'menu.chosenUnavailable': 'The previously chosen “{label}” is no longer available — pick again',
+  'menu.providerFailed': '{name}: could not list models',
+  'button.title': 'Prompt boost (click: {label}, model: {model}; right-click: direction and model)',
+  'button.busy': 'Boosting…',
+  'button.quickBusy': 'Boosting… (click again to cancel)',
+  'quick.running': 'Boosting — the result will replace the input box…',
   'button.otherBusy': 'Another session is enhancing right now — wait for it, or close its result panel first.',
-  'panel.title': 'Prompt Enhance',
+  'panel.title': 'Prompt Boost',
   'panel.loading': 'Enhancing, please wait…',
   'panel.streaming': 'Generating (shown as it is written)…',
   'panel.loading.hint': 'Your draft stays untouched until you apply the result.',
   'panel.cancel': 'Cancel',
   'panel.original': 'Original prompt',
-  'panel.enhanced': 'Enhanced result',
+  'panel.enhanced': 'Boosted result',
   'panel.apply': 'Fill into input box',
   'panel.copy': 'Copy result',
   'panel.copied': 'Copied',
@@ -76,7 +156,7 @@ export const en: Record<PromptEnhanceKey, string> = {
   'panel.stale.warn': 'The draft changed while enhancing — the result is based on the pre-enhance text. Applying will overwrite your latest edits (undo restores the draft as it was before applying).',
   'panel.model': 'Model: {provider} / {model}',
   'panel.elapsed': '{ms} elapsed',
-  'undo.applied': 'Original prompt replaced by the enhanced version',
+  'undo.applied': 'Replaced with the boosted prompt',
   'undo.undo': 'Undo',
   'undo.dismiss': 'Dismiss',
   'error.empty': 'The input box is empty — type a prompt to enhance first.',
@@ -107,11 +187,11 @@ export const en: Record<PromptEnhanceKey, string> = {
 export const dictionaries: Record<'zh', typeof zh> & Record<'en', Record<PromptEnhanceKey, string>> = { zh, en }
 
 /** Locale namespace of the browser half. */
-export const NS = 'prompt-enhance' as const
+export const NS = 'prompt-boost' as const
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** The prompt-enhance button/panel copy. */
-    'prompt-enhance': PromptEnhanceKey
+    /** The prompt-boost button/panel copy. */
+    'prompt-boost': PromptEnhanceKey
   }
 }

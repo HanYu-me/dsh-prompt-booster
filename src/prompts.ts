@@ -2,7 +2,7 @@
  * The built-in enhancement strategy system prompt. Users can replace it
  * wholesale through the `systemPrompt` setting; these constants are the
  * documented default and the reset target.
- * @module dsh-prompt-enhance/prompts
+ * @module dsh-prompt-boost/prompts
  */
 
 /**

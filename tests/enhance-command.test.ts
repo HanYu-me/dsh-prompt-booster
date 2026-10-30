@@ -53,7 +53,7 @@ beforeEach(() => {
   vi.mocked(sessionRouteOf).mockReturnValue(undefined)
 })
 
-describe('/enhance slash command', () => {
+describe('/boost slash command', () => {
   it('silently skips when the commands service is absent', () => {
     const effect = vi.fn()
     const ctx = { get: () => undefined, effect } as unknown as Context
@@ -63,7 +63,7 @@ describe('/enhance slash command', () => {
 
   it('registers a command named "enhance" with recordInput disabled', () => {
     const definition = captureDefinition()
-    expect(definition.name).toBe('enhance')
+    expect(definition.name).toBe('boost')
     expect(definition.recordInput).toBe(false)
   })
 
@@ -71,7 +71,7 @@ describe('/enhance slash command', () => {
     const definition = captureDefinition()
     const result = await definition.handler(invocation('   '))
     expect(result.kind).toBe('error')
-    expect((result as { text: string }).text).toContain('/enhance')
+    expect((result as { text: string }).text).toContain('/boost')
     expect(runEnhance).not.toHaveBeenCalled()
   })
 

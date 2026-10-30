@@ -3,7 +3,7 @@
  * the dsh-session-title-llm contract: paired route resolution, framed user
  * prompt, composed deadline + caller cancellation rechecked during and
  * after the stream, terminal-finish validation, output normalization.
- * @module dsh-prompt-enhance/enhancer
+ * @module dsh-prompt-boost/enhancer
  */
 
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -24,7 +24,7 @@ import { frameUserPrompt } from './prompts'
  */
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'prompt-enhance': { kind: 'prompt-enhance' }
+    'prompt-boost': { kind: 'prompt-boost' }
   }
 }
 
@@ -128,7 +128,7 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
     const messages = [
       createUserMessage({
         content: [{ type: 'text', text: frameUserPrompt(options.text, options.context) }],
-        source: { kind: 'prompt-enhance' },
+        source: { kind: 'prompt-boost' },
       }),
     ]
     const generate: GenerateOptions = {
@@ -139,7 +139,12 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       signal,
-      ...options.sessionId !== undefined ? { sessionId: options.sessionId as GenerateOptions['sessionId'] } : {},
+      // Deliberately no `sessionId`: a boost is a one-off auxiliary call, not
+      // a turn of the conversation. Adapters that keep one live process per
+      // session (Oh My Claude resumes the session's Claude Code process when
+      // it sees a sessionId) would otherwise run the rewrite inside the user's
+      // chat, where it shows up as a turn and pollutes its history. The
+      // session id is still used upstream, for context and route lookup.
     }
     const assembler = new BlockAssembler()
     const iterator = llm.stream(generate)[Symbol.asyncIterator]()
@@ -148,7 +153,7 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
     let onAbort: (() => void) | undefined
     const aborted = new Promise<never>((_, reject) => {
       onAbort = () => {
-        const error = new Error('prompt-enhance: aborted')
+        const error = new Error('prompt-boost: aborted')
         error.name = 'AbortError'
         reject(error)
       }

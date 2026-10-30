@@ -20,7 +20,7 @@
  * them keeps the composition entry as its configuration. Nothing here may
  * throw: a settings integration is optional by design, and the host half must
  * still mount without it.
- * @module dsh-prompt-enhance/settings-source
+ * @module dsh-prompt-boost/settings-source
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -100,7 +100,7 @@ function pickRow(rows: SettingsRowLike[], rowIds: readonly string[]): SettingsRo
     const hit = rows.find((row) => String(row.ns ?? '') === id)
     if (hit !== undefined && hit.value !== undefined) return hit
   }
-  return rows.find((row) => String(row.ns ?? '').includes('prompt-enhance') && row.value !== undefined)
+  return rows.find((row) => String(row.ns ?? '').includes('prompt-boost') && row.value !== undefined)
 }
 
 /**
@@ -157,7 +157,7 @@ export function installSettingsSource(ctx: Context, options: SettingsSourceOptio
             // auto-generated page is the default anyway.
             return () => {}
           }
-        }, 'prompt-enhance: settings page policy')
+        }, 'prompt-boost: settings page policy')
       } catch {
         // `ctx.effect` unavailable on an exotic context: policy stays default.
       }

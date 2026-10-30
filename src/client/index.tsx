@@ -1,5 +1,5 @@
 /**
- * Browser half of the prompt-enhance plugin: registers the composer
+ * Browser half of the prompt-boost plugin: registers the composer
  * enhance button (conversation.input.right), the undo bar
  * (conversation.input.dock), the zh/en dictionaries, the settings mirror,
  * and the configurable global shortcut. Failure policy mirrors the
@@ -12,7 +12,7 @@
  * `@deepseek-ai/dsh-client-ui-slots` (which now only ships the contract
  * types), and a hard type import of the old home would tie this half to a
  * package the runtime no longer ships.
- * @module dsh-prompt-enhance/client
+ * @module dsh-prompt-boost/client
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -72,7 +72,7 @@ export const inject: string[] = []
  */
 function report(step: string, error: unknown): () => void {
   try {
-    console.warn(`[prompt-enhance] ${step} failed; that feature stays off.`, error)
+    console.warn(`[prompt-boost] ${step} failed; that feature stays off.`, error)
   } catch {
     // A throwing console (a proxied one, or a locked-down shell) must not turn
     // a degraded feature into a failed boot.
@@ -94,7 +94,7 @@ export function apply(ctx: ClientContext): void {
       } catch (error) {
         return report('dictionary registration', error)
       }
-    }, 'dsh-prompt-enhance: dictionaries')
+    }, 'dsh-prompt-boost: dictionaries')
   })
 
   // Baseline before anything optional mounts: the bundled mirror equals the
@@ -117,7 +117,7 @@ export function apply(ctx: ClientContext): void {
     return slots.inject('conversation.input.right', () => {
       try {
         return slots.register(
-          { name: 'conversation.input.right', id: 'prompt-enhance', order: 60, locale: NS },
+          { name: 'conversation.input.right', id: 'prompt-boost', order: 60, locale: NS },
           EnhanceButton as unknown as never,
         )
       } catch (error) {
@@ -132,7 +132,7 @@ export function apply(ctx: ClientContext): void {
     return slots.inject('conversation.input.dock', () => {
       try {
         return slots.register(
-          { name: 'conversation.input.dock', id: 'prompt-enhance-undo', order: 90, locale: NS },
+          { name: 'conversation.input.dock', id: 'prompt-boost-undo', order: 90, locale: NS },
           UndoBar as unknown as never,
         )
       } catch (error) {
@@ -162,5 +162,5 @@ export function apply(ctx: ClientContext): void {
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, 'dsh-prompt-enhance: shortcut')
+  }, 'dsh-prompt-boost: shortcut')
 }

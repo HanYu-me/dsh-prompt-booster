@@ -1,5 +1,5 @@
 /**
- * End-to-end tests of the POST /prompt-enhance/enhance route over a real
+ * End-to-end tests of the POST /prompt-boost/enhance route over a real
  * node:http server: loopback fence, method guard, body validation, the
  * structured error envelope, and the full happy path through a stubbed
  * ctx.llm (real BlockAssembler/createUserMessage).
@@ -113,7 +113,7 @@ function mount(llm: ReturnType<typeof makeLlm>, config = CONFIG): Server {
 }
 
 /** One request against the test server. */
-async function call(server: Server, method: string, body?: string, path = '/prompt-enhance/enhance', extraHeaders: Record<string, string> = {}): Promise<{ status: number; json: unknown; headers: Headers }> {
+async function call(server: Server, method: string, body?: string, path = '/prompt-boost/enhance', extraHeaders: Record<string, string> = {}): Promise<{ status: number; json: unknown; headers: Headers }> {
   const { port } = server.address() as AddressInfo
   const response = await fetch(`http://127.0.0.1:${port}${path}`, {
     method,
@@ -122,7 +122,7 @@ async function call(server: Server, method: string, body?: string, path = '/prom
   return { status: response.status, json: (await response.json()) as unknown, headers: response.headers }
 }
 
-describe('POST /prompt-enhance/enhance (real http)', () => {
+describe('POST /prompt-boost/enhance (real http)', () => {
   let server: Server
   beforeAll(() => {
     server = mount(makeLlm(() => streamOf(['角色：Python 工程师。\n目标：写一个爬虫。'], [{ type: 'finish', reason: { kind: 'stop' } }])))
@@ -162,7 +162,7 @@ describe('POST /prompt-enhance/enhance (real http)', () => {
 
   it('answers 415 for a non-JSON content type', async () => {
     const { port } = server.address() as AddressInfo
-    const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance`, {
+    const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance`, {
       method: 'POST',
       headers: { 'content-type': 'text/plain' },
       body: JSON.stringify({ text: '写' }),
@@ -179,7 +179,7 @@ describe('POST /prompt-enhance/enhance (real http)', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
       const { port } = server.address() as AddressInfo
-      const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance`, {
+      const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text: '写' }),
@@ -195,7 +195,7 @@ describe('POST /prompt-enhance/enhance (real http)', () => {
     const { port } = server.address() as AddressInfo
     const status = await new Promise<number>((resolve) => {
       const request = http.request(
-        { host: '127.0.0.1', port, method: 'POST', path: '/prompt-enhance/enhance', headers: { 'content-type': 'application/json', 'content-length': '99999999' } },
+        { host: '127.0.0.1', port, method: 'POST', path: '/prompt-boost/enhance', headers: { 'content-type': 'application/json', 'content-length': '99999999' } },
         (response) => {
           response.resume()
           resolve(response.statusCode ?? 0)
@@ -208,7 +208,7 @@ describe('POST /prompt-enhance/enhance (real http)', () => {
   })
 
   it('answers 404 for unknown subpaths under the prefix', async () => {
-    const { status } = await call(server, 'POST', JSON.stringify({ text: '写个脚本' }), '/prompt-enhance/anything')
+    const { status } = await call(server, 'POST', JSON.stringify({ text: '写个脚本' }), '/prompt-boost/anything')
     expect(status).toBe(404)
   })
 
@@ -239,7 +239,7 @@ describe('POST /prompt-enhance/enhance (real http)', () => {
   })
 })
 
-describe('POST /prompt-enhance/enhance failure mapping (real http)', () => {
+describe('POST /prompt-boost/enhance failure mapping (real http)', () => {
   it('maps an AUTH error finish to 502 with a fix hint', async () => {
     const server = mount(makeLlm(() => streamOf([], [{ type: 'finish', reason: { kind: 'error', failure: { message: '401 unauthorized', code: 'AUTH' } } }])))
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -282,7 +282,7 @@ describe('POST /prompt-enhance/enhance failure mapping (real http)', () => {
   })
 })
 
-describe('POST /prompt-enhance/enhance disconnect handling (real sockets)', () => {
+describe('POST /prompt-boost/enhance disconnect handling (real sockets)', () => {
   it('aborts the model call when the client disconnects mid-flight', async () => {
     const seen: boolean[] = []
     let capturedSignal: AbortSignal | undefined
@@ -310,7 +310,7 @@ describe('POST /prompt-enhance/enhance disconnect handling (real sockets)', () =
     const net = await import('node:net')
     const socket = net.connect({ port, host: '127.0.0.1' }, () => {
       const body = JSON.stringify({ text: '写个脚本' })
-      socket.write(`POST /prompt-enhance/enhance HTTP/1.1\r\nHost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+      socket.write(`POST /prompt-boost/enhance HTTP/1.1\r\nHost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
       setTimeout(() => socket.destroy(), 80)
     })
     socket.on('error', () => {})
@@ -343,7 +343,7 @@ describe('POST /prompt-enhance/enhance disconnect handling (real sockets)', () =
     const body = JSON.stringify({ text: '占用者' })
     await new Promise<void>((resolve) => {
       const socket = net.connect({ port, host: '127.0.0.1' }, () => {
-        socket.write(`POST /prompt-enhance/enhance HTTP/1.1\r\nHost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
+        socket.write(`POST /prompt-boost/enhance HTTP/1.1\r\nHost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`)
         setTimeout(() => {
           socket.destroy()
           resolve()
@@ -367,7 +367,7 @@ describe('admission gate: Origin / rate / concurrency', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
       const { port } = server.address() as AddressInfo
-      const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance`, {
+      const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: 'https://evil.com' },
         body: JSON.stringify({ text: '写个脚本' }),
@@ -383,7 +383,7 @@ describe('admission gate: Origin / rate / concurrency', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
       const { port } = server.address() as AddressInfo
-      const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance`, {
+      const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:' + port },
         body: JSON.stringify({ text: '写个脚本' }),
@@ -401,7 +401,7 @@ describe('admission gate: Origin / rate / concurrency', () => {
       const { port } = server.address() as AddressInfo
       // Same loopback hostname, wrong port: a page served by any other local
       // tool would otherwise be a same-app page and could spend model quota.
-      const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance`, {
+      const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: `http://127.0.0.1:${port + 1}` },
         body: JSON.stringify({ text: '写个脚本' }),
@@ -539,7 +539,7 @@ describe('admission gate: Origin / rate / concurrency', () => {
   })
 })
 
-describe('POST /prompt-enhance/enhance-stream (real http, SSE)', () => {
+describe('POST /prompt-boost/enhance-stream (real http, SSE)', () => {
   /**
    * POST one draft and read the SSE body INCREMENTALLY.
    *
@@ -557,7 +557,7 @@ describe('POST /prompt-enhance/enhance-stream (real http, SSE)', () => {
    */
   async function callStream(server: Server, text: string, extraHeaders: Record<string, string> = {}): Promise<{ status: number; contentType: string; body: string }> {
     const { port } = server.address() as AddressInfo
-    const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance-stream`, {
+    const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance-stream`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'text/event-stream', ...extraHeaders },
       body: JSON.stringify({ text }),
@@ -674,7 +674,7 @@ describe('POST /prompt-enhance/enhance-stream (real http, SSE)', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
       const { port } = server.address() as AddressInfo
-      const response = await fetch(`http://127.0.0.1:${port}/prompt-enhance/enhance-stream`, {
+      const response = await fetch(`http://127.0.0.1:${port}/prompt-boost/enhance-stream`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', forwarded: 'for=1.2.3.4' },
         body: JSON.stringify({ text: '写' }),

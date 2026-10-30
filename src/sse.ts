@@ -11,7 +11,7 @@
  *
  * `ServerResponseLike` is deliberately structural: unit tests drive a plain
  * fake, and the route passes the real `ServerResponse`.
- * @module dsh-prompt-enhance/sse
+ * @module dsh-prompt-boost/sse
  */
 
 /** The response surface this writer needs (a real `ServerResponse` satisfies it). */

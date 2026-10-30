@@ -2,7 +2,7 @@
  * Minimal JSON body/response helpers for the plugin's host route, following
  * the describe-image route family's conventions: one strict bounded reader
  * and one JSON writer with family-default headers.
- * @module dsh-prompt-enhance/http
+ * @module dsh-prompt-boost/http
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'

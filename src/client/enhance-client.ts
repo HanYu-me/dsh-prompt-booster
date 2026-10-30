@@ -1,11 +1,11 @@
 /**
- * Browser-side client of the POST /prompt-enhance/enhance host route:
+ * Browser-side client of the POST /prompt-boost/enhance host route:
  * same-origin fetch with abort support and a typed error surface. Every
  * failure is a structured EnhanceError the panel renders verbatim.
- * @module dsh-prompt-enhance/client/enhance-client
+ * @module dsh-prompt-boost/client/enhance-client
  */
 
-import { ENHANCE_ENDPOINT, ENHANCE_STREAM_ENDPOINT, type EnhanceError, type EnhanceErrorCode, type EnhanceRequestBody, type EnhanceResult, type EnhanceStreamEvent } from '../shared/protocol'
+import { DIRECTIONS_ENDPOINT, ENHANCE_ENDPOINT, ENHANCE_STREAM_ENDPOINT, MODELS_ENDPOINT, type DirectionInput, type DirectionList, type ModelCatalog, type EnhanceError, type EnhanceErrorCode, type EnhanceRequestBody, type EnhanceResult, type EnhanceStreamEvent } from '../shared/protocol'
 
 /** Typed fetch failure carrying the wire error. */
 export class EnhanceClientError extends Error {
@@ -249,4 +249,91 @@ export async function requestEnhance(body: EnhanceRequestBody, signal?: AbortSig
     throw new EnhanceClientError({ code: 'internal', message: '无法连接宿主服务，请确认 dsh web 正在运行后重试。' })
   }
   return readEnvelope(response)
+}
+
+/**
+ * Fetch the model catalog the boost menu lists (the same live list as DSH's
+ * own model picker).
+ * @param sessionId - the composer's session, so the "follow" row can name the
+ *   model that session would use; absent for the harness default.
+ * @param signal - cancellation.
+ * @returns the catalog.
+ * @throws EnhanceClientError on transport or host failure.
+ */
+export async function fetchModelCatalog(sessionId: string | undefined, signal?: AbortSignal): Promise<ModelCatalog> {
+  const url = sessionId === undefined ? MODELS_ENDPOINT : `${MODELS_ENDPOINT}?sessionId=${encodeURIComponent(sessionId)}`
+  let response: Response
+  try {
+    response = await fetch(url, { method: 'GET', signal } as RequestInit)
+  } catch (error) {
+    throw new EnhanceClientError({ code: 'internal', message: error instanceof Error ? error.message : String(error) })
+  }
+  let parsed: unknown
+  try {
+    parsed = await response.json()
+  } catch {
+    throw new EnhanceClientError({ code: 'internal', message: `宿主服务返回异常（HTTP ${response.status}）。` })
+  }
+  const envelope = parsed as { ok?: unknown; value?: ModelCatalog; error?: EnhanceError } | null
+  if (envelope !== null && typeof envelope === 'object' && envelope.ok === true && envelope.value !== undefined && Array.isArray(envelope.value.groups)) {
+    return {
+      groups: envelope.value.groups,
+      failures: Array.isArray(envelope.value.failures) ? envelope.value.failures : [],
+      ...(envelope.value.fallback !== undefined ? { fallback: envelope.value.fallback } : {}),
+    }
+  }
+  if (envelope !== null && typeof envelope === 'object' && envelope.error !== undefined) {
+    throw new EnhanceClientError(parseError(envelope.error))
+  }
+  throw new EnhanceClientError({ code: 'internal', message: `宿主服务返回异常（HTTP ${response.status}）。` })
+}
+
+/**
+ * One call to the mode editor routes.
+ * @param method - HTTP method.
+ * @param path - the route path.
+ * @param body - the JSON body, if any.
+ * @returns the fresh mode list.
+ * @throws EnhanceClientError with the host's message on failure.
+ */
+async function directionCall(method: string, path: string, body?: DirectionInput): Promise<DirectionList> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      ...(body !== undefined ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}),
+    } as RequestInit)
+  } catch (error) {
+    throw new EnhanceClientError({ code: 'internal', message: error instanceof Error ? error.message : String(error) })
+  }
+  let parsed: unknown
+  try {
+    parsed = await response.json()
+  } catch {
+    throw new EnhanceClientError({ code: 'internal', message: `宿主服务返回异常（HTTP ${response.status}）。` })
+  }
+  const envelope = parsed as { ok?: unknown; value?: DirectionList; error?: EnhanceError } | null
+  if (envelope?.ok === true && envelope.value !== undefined && Array.isArray(envelope.value.directions)) return envelope.value
+  if (envelope?.error !== undefined) throw new EnhanceClientError(parseError(envelope.error))
+  throw new EnhanceClientError({ code: 'internal', message: `宿主服务返回异常（HTTP ${response.status}）。` })
+}
+
+/** The effective modes (built-in + settings + saved). */
+export function fetchDirections(): Promise<DirectionList> {
+  return directionCall('GET', DIRECTIONS_ENDPOINT)
+}
+
+/** Create a mode; the answer carries its new id in `createdId`. */
+export function createDirection(input: DirectionInput): Promise<DirectionList> {
+  return directionCall('POST', DIRECTIONS_ENDPOINT, input)
+}
+
+/** Save (edit) an existing mode. */
+export function saveDirection(id: string, input: DirectionInput): Promise<DirectionList> {
+  return directionCall('PUT', `${DIRECTIONS_ENDPOINT}/${encodeURIComponent(id)}`, input)
+}
+
+/** Delete a saved mode, or restore a built-in / settings mode to its original. */
+export function deleteDirection(id: string): Promise<DirectionList> {
+  return directionCall('DELETE', `${DIRECTIONS_ENDPOINT}/${encodeURIComponent(id)}`)
 }

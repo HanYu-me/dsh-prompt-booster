@@ -1,11 +1,11 @@
 /**
- * Host half of the prompt-enhance plugin: the `prompt-enhance` settings
- * section, the POST /prompt-enhance/enhance route (LLM call through
+ * Host half of the prompt-boost plugin: the `prompt-boost` settings
+ * section, the POST /prompt-boost/enhance route (LLM call through
  * ctx.llm, route resolved by precedence: settings pair → session request
  * header → harness default model), and the /enhance slash command. The
  * browser half (exports "./client") contributes the composer button, the
  * preview panel, and the undo bar.
- * @module dsh-prompt-enhance
+ * @module dsh-prompt-boost
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -14,8 +14,9 @@ import { installSettingsSource } from './settings-source'
 import { PROMPT_ENHANCE_ROW_IDS } from './shared/protocol'
 import { registerEnhanceRoute } from './enhance-routes'
 import { registerEnhanceCommand } from './enhance-command'
+import { createFileStore } from './direction-store'
 
-export const name = 'prompt-enhance'
+export const name = 'prompt-boost'
 /**
  * Only the model service is a hard requirement. `webServer` used to be listed
  * here too, which made the whole entry — including the `/enhance` slash
@@ -37,6 +38,8 @@ export { enhanceText, formatEnhanceError, resolveRoute, toEnhanceError } from '.
 export type { EnhanceCallOptions, LlmStreamFace, RoutePair, UpstreamReason } from './enhancer'
 export { normalizeOutput } from './shared/normalize'
 export { checkInputText } from './shared/validate'
+export { BUILTIN_DIRECTIONS, GENERAL_DIRECTION_ID, defaultDirectionOf, findDirection, parseCustomDirections, resolveDirections, withDirection } from './shared/directions'
+export type { Direction, DirectionParseIssue, DirectionParseResult, LocalizedText } from './shared/directions'
 export { ENHANCE_ENDPOINT } from './shared/protocol'
 export type { EnhanceError, EnhanceResult, EnhanceRequestBody, EnhanceResponse, EnhanceErrorCode } from './shared/protocol'
 
@@ -83,6 +86,8 @@ export function apply(ctx: Context, config: PluginConfig = { ...DEFAULT_CONFIG }
   // normalized form (trimmed provider/model, stripped legacy keys, validated
   // ranges) — the validate hook only refuses bad values, it never transforms.
   const readConfig = (): PluginConfig => resolveConfig(source.read() as PluginConfig)
-  registerEnhanceRoute(ctx, readConfig)
-  registerEnhanceCommand(ctx, readConfig)
+  // Modes saved from the right-click menu editor live in one host file.
+  const store = createFileStore()
+  registerEnhanceRoute(ctx, readConfig, store)
+  registerEnhanceCommand(ctx, readConfig, store)
 }

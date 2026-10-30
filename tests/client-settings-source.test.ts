@@ -74,7 +74,7 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
     const fake = fakeForm({ enabled: false, maxInputChars: 5000, shortcut: 'ctrl+alt+p', streaming: false })
     const forms = {
       get: (): unknown => fake.form,
-      describe: (): unknown => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-enhance' }] } }) }),
+      describe: (): unknown => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-boost' }] } }) }),
     }
     const { ctx } = contextWith({ configForms: forms })
     const onSection = vi.fn()
@@ -94,11 +94,11 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
         seen.push(id)
         return fake.form
       },
-      describe: (): unknown => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'web-ui-prompt-enhance' }] } }) }),
+      describe: (): unknown => ({ getSnapshot: () => ({ view: { namespaces: [{ ns: 'web-ui-prompt-boost' }] } }) }),
     }
     const { ctx } = contextWith({ configForms: forms })
     installClientSettingsSource(ctx, options(vi.fn()))
-    expect(seen).toEqual(['web-ui-prompt-enhance'])
+    expect(seen).toEqual(['web-ui-prompt-boost'])
   })
 
   it('ignores an unavailable namespace instead of blanking the mirror', () => {
@@ -135,7 +135,7 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
     const forms = {
       get: (id: string): unknown => {
         seen.push(id)
-        return id === 'web-ui-prompt-enhance' ? renamed.form : early.form
+        return id === 'web-ui-prompt-boost' ? renamed.form : early.form
       },
       describe: (): unknown => ({
         getSnapshot: () => ({ view: { namespaces } }),
@@ -148,12 +148,12 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
     const { ctx } = contextWith({ configForms: forms })
     const onSection = vi.fn()
     installClientSettingsSource(ctx, options(onSection))
-    expect(seen).toEqual(['prompt-enhance'])
+    expect(seen).toEqual(['prompt-boost'])
     expect(onSection).not.toHaveBeenCalled()
 
-    namespaces = [{ ns: 'web-ui-prompt-enhance' }]
+    namespaces = [{ ns: 'web-ui-prompt-boost' }]
     for (const listener of [...listeners]) listener()
-    expect(seen).toEqual(['prompt-enhance', 'web-ui-prompt-enhance'])
+    expect(seen).toEqual(['prompt-boost', 'web-ui-prompt-boost'])
     expect(onSection).toHaveBeenCalledWith({ enabled: false, maxInputChars: 777 })
     // The new form keeps being followed after the rebind.
     renamed.publish({ enabled: true, maxInputChars: 1 })
@@ -171,7 +171,7 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
     const forms = {
       get: (): unknown => (ready ? fake.form : undefined),
       describe: (): unknown => ({
-        getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-enhance' }] } }),
+        getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-boost' }] } }),
         subscribe: (listener: () => void): (() => void) => {
           listeners.push(listener)
           return () => {}
@@ -198,7 +198,7 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
         return fake.form
       },
       describe: (): unknown => ({
-        getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-enhance' }] } }),
+        getSnapshot: () => ({ view: { namespaces: [{ ns: 'prompt-boost' }] } }),
         subscribe: (listener: () => void): (() => void) => {
           listeners.push(listener)
           return () => {}
@@ -209,7 +209,7 @@ describe('installClientSettingsSource: configForms (dsh 0.2.x)', () => {
     installClientSettingsSource(ctx, options(vi.fn()))
     for (const listener of [...listeners]) listener()
     for (const listener of [...listeners]) listener()
-    expect(seen).toEqual(['prompt-enhance'])
+    expect(seen).toEqual(['prompt-boost'])
     expect(fake.listeners).toHaveLength(1)
   })
 })

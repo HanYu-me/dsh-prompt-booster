@@ -37,7 +37,7 @@ const t = ((key: string, params?: Record<string, unknown>): string => {
   let text = dict[key] ?? key
   for (const [name, value] of Object.entries(params ?? {})) text = text.split(`{${name}}`).join(String(value))
   return text
-}) as TranslateNS<'prompt-enhance'>
+}) as TranslateNS<'prompt-boost'>
 
 const renderError = (error: EnhanceError): HTMLElement => {
   const state: PanelState = { sessionId: 's1', phase: 'error', original: '旧原文', error }

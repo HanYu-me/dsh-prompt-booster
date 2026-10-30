@@ -12,6 +12,9 @@ describe('decodeClientSettings', () => {
       maxInputChars: DEFAULT_CONFIG.maxInputChars,
       shortcut: DEFAULT_CONFIG.shortcut,
       streaming: DEFAULT_CONFIG.streaming,
+      defaultDirection: DEFAULT_CONFIG.defaultDirection,
+      customDirections: DEFAULT_CONFIG.customDirections,
+      quickApply: DEFAULT_CONFIG.quickApply,
     })
   })
 
@@ -23,8 +26,8 @@ describe('decodeClientSettings', () => {
 
   it('reads well-formed fields', () => {
     expect(
-      decodeClientSettings({ enabled: false, maxInputChars: 8000, shortcut: 'ctrl+shift+e', streaming: false }),
-    ).toEqual({ enabled: false, maxInputChars: 8000, shortcut: 'ctrl+shift+e', streaming: false })
+      decodeClientSettings({ enabled: false, maxInputChars: 8000, shortcut: 'ctrl+shift+e', streaming: false, defaultDirection: ' Coding ', customDirections: 'a | b | c', quickApply: false }),
+    ).toEqual({ enabled: false, maxInputChars: 8000, shortcut: 'ctrl+shift+e', streaming: false, defaultDirection: 'coding', customDirections: 'a | b | c', quickApply: false })
   })
 
   it('falls back field-by-field on bad values', () => {

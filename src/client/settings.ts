@@ -4,7 +4,7 @@
  * so this module re-declares the three fields the UI reads, with the same
  * defaults, and re-exports them as a subscribable store fed by the bound
  * settings scope.
- * @module dsh-prompt-enhance/client/settings
+ * @module dsh-prompt-boost/client/settings
  */
 
 /** The settings subset the browser UI consumes (mirror of the host defaults). */
@@ -14,6 +14,12 @@ export interface ClientSettings {
   shortcut: string
   /** Show the model's output as it streams (host may still fall back). */
   streaming: boolean
+  /** Direction a plain click / the shortcut uses. */
+  defaultDirection: string
+  /** Operator-defined directions (raw textarea; parsed by shared/directions). */
+  customDirections: string
+  /** The quick boost replaces the draft directly, without the preview panel. */
+  quickApply: boolean
 }
 
 // Compile-time guarantee: the mirror only tracks keys that exist in the host
@@ -28,6 +34,9 @@ export const DEFAULT_CLIENT_SETTINGS: ClientSettings = {
   maxInputChars: 12000,
   shortcut: 'ctrl+alt+e',
   streaming: true,
+  defaultDirection: 'general',
+  customDirections: '',
+  quickApply: true,
 }
 
 const listeners = new Set<() => void>()
@@ -75,5 +84,10 @@ export function decodeClientSettings(section: unknown): ClientSettings {
       : DEFAULT_CLIENT_SETTINGS.maxInputChars,
     shortcut: typeof record.shortcut === 'string' ? record.shortcut : DEFAULT_CLIENT_SETTINGS.shortcut,
     streaming: typeof record.streaming === 'boolean' ? record.streaming : DEFAULT_CLIENT_SETTINGS.streaming,
+    defaultDirection: typeof record.defaultDirection === 'string' && record.defaultDirection.trim() !== ''
+      ? record.defaultDirection.trim().toLowerCase()
+      : DEFAULT_CLIENT_SETTINGS.defaultDirection,
+    customDirections: typeof record.customDirections === 'string' ? record.customDirections : DEFAULT_CLIENT_SETTINGS.customDirections,
+    quickApply: typeof record.quickApply === 'boolean' ? record.quickApply : DEFAULT_CLIENT_SETTINGS.quickApply,
   }
 }

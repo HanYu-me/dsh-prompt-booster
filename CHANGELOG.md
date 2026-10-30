@@ -1,224 +1,24 @@
 # Changelog
 
-All notable changes are documented here. Versions follow [npm](https://www.npmjs.com/package/dsh-prompt-enhance); releases from **0.2.3** onward also have a [GitHub Release](https://github.com/rongxingda/dsh-prompt-enhance/releases) page with notes (0.2.0–0.2.2 are tagged but have no Release page — see this file for their notes).
+## 0.1.0 — 2026-10-30
 
-## 0.3.2 (2026-10-22)
+First release of dsh-prompt-booster, based on [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) 0.3.2 (its own history is kept in [docs/upstream/CHANGELOG.md](./docs/upstream/CHANGELOG.md)).
 
-Closes the last item 0.3.1 listed as deliberately out of scope: the loopback fence compared an `Origin`'s **hostname** against the allowlist but never its **port**, so a page served by any other local server — a dev tool on `localhost:4000`, a playground, a docs preview — was *admitted* by the fence as a same-app page.
+### Added
 
-That was never a live exploit, and saying so matters: a browser page still had to clear a CORS preflight against a route that answers `OPTIONS` with `405` and sets no `Access-Control-Allow-Origin`, and then the route's `application/json` gate (`415` otherwise). Both barriers happen to stand, and neither is an authentication control this code owns. A fence whose verdict is only safe because two unrelated checks sit behind it is not a fence; the port is now pinned to the one the request was addressed to, read off the `Host` header, with the scheme default standing in when either side leaves it out (`http://localhost` ≡ `localhost:80`).
+- Right-click (long press on touch, or the keyboard context-menu key) opens a mode menu with eight built-in modes: quick boost (`general`), concise, structured, fill in details, coding task, research, academic writing, rewrite in English.
+- Mode editor in the menu: edit any mode's name and template, add new modes, restore edited built-ins, delete created modes. Stored on the host in `~/.dsh/prompt-boost/directions.json`; routes `GET/POST /prompt-boost/directions`, `PUT/DELETE /prompt-boost/directions/<id>`.
+- Settings `defaultDirection`, `customDirections` (`id | name | instruction` per line) and `quickApply`.
+- Boost-model choice in the menu, listing dsh's live model catalog (`GET /prompt-boost/models`); stored per browser; the host only accepts listed models.
+- `/boost [@mode] text` slash command.
+- The quick boost applies the result in place (no preview), with a progress strip, undo, cancel-on-second-click, and errors shown above the composer.
 
-The fallback is deliberate and narrow: a `Host` header naming no port — a default-port server, or an HTTP/1.0-style client sending no `Host` at all — leaves nothing to pin against, so the hostname-only verdict stands exactly as it did in 0.3.1. That was never a new gap; it is the same trust boundary, now stated in the function rather than merely implied by the code.
+### Changed
 
-While in there, one real false negative: `URL.hostname` keeps the square brackets on IPv6 literals and the allowlist does not, so `Origin: http://[::1]:3080` was refused even though `Host: [::1]:3080` was trusted. Refusing is the safe direction, but it is still a defect — on an IPv6-only loopback host the served page could never call the route at all. Brackets are stripped before the comparison now.
+- The quick boost is a light-touch rewrite: smoother wording and a few implied details, within ~1.5x the original, no added structure.
+- Renamed: package `dsh-prompt-booster`, plugin id `prompt-boost`, routes `/prompt-boost/*`, command `/boost`.
+- UI redesigned on dsh design tokens; follows dsh's light/dark theme instead of the OS setting; SVG icons, one per built-in mode.
 
-Verification: three new unit cases plus one end-to-end 403 through a real listening server — three of the four fail against the 0.3.1 code (the IPv6 case included, so neither is a paper argument); the fourth pins the `Host`-without-port fallback, the behaviour deliberately carried over, and therefore passes on both the old and the new code by design. Suite: **24 files / 246 cases green** (was 242); `lib/` rebuilt; typecheck clean.
+### Fixed
 
-## 0.3.1 (2026-10-22)
-
-Fixes the two defects the 0.3.0 settings rewrite did not actually reach — the config page never appeared, and a failed stream never closed — plus a lifetime bug in the route and four smaller failure-path gaps. Both headline items are the "looks present, is not working" kind, so each ships with a test that fails on the old code.
-
-**The settings page never existed, and every write against it threw.** The host builds that page from `SettingsForms.describe()`, which projects each profile entry through an internal `volatileForm()` and **drops the entire entry** when no field carries `meta.volatile`. Every one of the 16 fields was declared with `.description()` only, so the projection returned `undefined`, the entry was skipped, and a write against it failed with `Plugin entry "prompt-enhance" has no volatile fields` — while `read()` kept answering from the boot-time config. All 16 fields now carry `.volatile()`, which is also the promise the plugin already honoured (every request re-reads config through one closure). This required moving the schema to `@deepseek-ai/schemastery`: `.volatile()` does not exist in the plain `schemastery` line the plugin depended on, and only the fork carries the placement check that goes with it. Verified with the host's own `volatileForm()` against the built artifact: `undefined` before, a 16-field form after — and on a real `dsh web` at `0.2.1-rc.2` the plugin activates and the route answers against the live model. Closes the first half of #7.
-
-**A failed stream wrote its error frame and never ended the response.** The success path had always called `res.end()`, with a comment explaining why (a chunked body that never receives its `0\r\n\r\n` is half-open, so a browser survives only because it acts on the frame and stops reading, while `response.text()`, curl and any proxy wait forever). The failure path only wrote `event: error`. Both paths now close through one helper, and the new test fails by timing out at 2 s if the close goes missing again.
-
-**The route outlived the plugin.** `webServer.register` only hands back a "drop from the table" function; it does not reclaim the route on unload. The disposer was parked in a module-level map that nothing ever called, so an unloaded plugin kept answering with a stale config reader and a stale admission gate, and a reload hit `duplicate prefix route`. Registration now happens inside `ctx.effect`, and the service is a dependency (`ctx.inject(['webServer'])`) rather than a boot-time snapshot — which also lets `webServer` leave the hard `inject` list, so `/enhance` exists in compositions that never mount one. Closes the second half of #7.
-
-**Four failure-path gaps.** `/enhance` read config outside its `try`, so a rejected provider/model pair surfaced as an uncaught exception instead of the bilingual message the route already shows. The streaming client treated *any* non-2xx as "this transport cannot stream", discarded the structured envelope and re-sent the identical request — spending quota twice on a 429 and replacing the real reason with the retry's generic failure; a refusal is now reported as itself, and only a 200-that-is-not-a-stream falls back. The shortcut's composer lookup walked up to `<body>`, which contains every session's composer, so with the result panel open (it is portaled onto `body` and takes focus) the first registered session won — it now stops before that node and falls back to the most recently mounted session. The settings mirror recorded an entry id *before* the lookup and kept it when the lookup came back empty, so a form that was not ready yet burned the id and the mirror never retried; the id is now claimed only by a form that exists.
-
-**Diagnosability and small ones.** The three client wiring catches were bare, despite a module comment promising "caught and logged" — they now `console.warn` a named step, which is the only trace a "button does not appear" report can carry. The dialog's Tab trap skipped the reverse direction when focus sat on the panel root (deliberately `tabIndex={-1}`, so neither first nor last). Disabling the plugin no longer swallows the shortcut: it used to preventDefault and run a no-op. `scripts/build.mjs` was listed in `tsconfig.include` but `allowJs` was off, so it was never checked; `checkJs` is on now and the file carries the JSDoc that makes its esbuild options type-check. The README no longer calls `dsh.engines` advisory metadata — the host's boot preflight disables a mismatched entry and throws without `--accept-risk`.
-
-Suite: **24 files / 242 cases green** (was 22 / 231); `lib/` rebuilt; typecheck clean against `0.2.1-rc.2`.
-
-## 0.3.0 (2026-10-20)
-
-Moves the plugin onto the `0.2.1-rc.2` runtime's settings and slot contracts, and fixes three behaviour bugs found while doing it — plus two defects in the new browser mirror that a second pass over it turned up. Type-checked and tested against `@deepseek-ai/dsh-*@0.2.1-rc.2`, and boot-verified on a real `dsh web` at that version: the enhance route answered against the live model, and a settings edit made in the running profile changed the very next request's behaviour.
-
-**The settings surface was rebuilt in 0.2.x, and the plugin silently lost it.** `@deepseek-ai/dsh-settings` no longer exports `installSettingsSection` or `settingsNamespace` at all — the whole installer entry is gone, replaced by `SettingsForms.describe()`, which lists one descriptor per profile entry and generates the page from the Config schema the loader already holds. The previous probe found neither `installSection` nor the module exports, so it fell through to the boot-time config: the settings page kept rendering, every edit landed on disk, and no edit ever reached a request. The host half now reads the section through `describe()` on each call (with the two legacy paths kept for older lines), so a change applies to the next enhancement on every generation. On the 0.2.x line this is verified end-to-end, not just in unit tests: with `maxInputChars: 300` a 400-character draft was refused with `422 {count: 400, max: 300}`, and after editing the same profile to `20000` — without restarting — the identical draft went through.
-
-**The browser mirror was reading a service that no longer exists.** The client half bound `ctx.settingsScope`, which 0.1.7 removed and 0.2.x does not serve; the mirror therefore stayed on its bundled defaults forever, so `enabled`, `maxInputChars`, `shortcut` and `streaming` set by the operator never reached the button, the guards, or the keyboard shortcut. A new `client/settings-source` probes `ctx.configForms.get(entryId)` first, then the aggregate `webUiSettings` binder, then the legacy scope, ranked so a host mounting several of them keeps the most authoritative one. Row ids are discovered from `describe()` first, because an aggregate bundle renames child rows.
-
-**Two defects in that new mirror, found on a second pass over it.** `configForms.get()` does not create a form per caller: the settings provider caches **one controller per entry** and hands the same instance to the settings page, and a controller's `dispose()` permanently stops it deriving (the provider keeps the dead instance in its cache). The mirror tore that shared object down on plugin unload, which would have left this entry's settings page frozen for the rest of the session — it now releases only its own subscription. Separately, the entry id was resolved once, at apply time; when the describe mirror had not loaded yet the namespace list was empty and the plugin bound its configured candidate, which on an aggregate bundle is not the real row — and a namespace that does not exist answers `unavailable` forever, so the mirror stayed on bundled defaults. Resolution now re-runs on every describe tick and rebinds when the served id changes, which also covers a rename the first pass could not see.
-
-**Slot and message contracts.** `conversation.input.right` still delivers `sessionId`/`useInput`/`inputActions`, but through `@deepseek-ai/dsh-client-ui-session` and `@deepseek-ai/dsh-client-store` declarations; those are now imported for types so `sessionId` and the selector's state stop typing as `any`. `InputState.imageIds` became `attachmentIds` — the attachment guard had been reading the old field and therefore never fired on 0.2.x; both names are read now, so one build serves both generations. `lib` also stops importing the `{ kind: 'plugin' }` message source dsh removed: the plugin declares its own merge-extensible `'prompt-enhance'` kind instead.
-
-**Fixed: retry storms against a broken route.** The rate window counts successful calls only (deliberately — a run of timeouts must not lock the user out when the model recovers). That left deterministic failures in milliseconds — a wrong API key, a mistyped provider — bounded by nothing but the concurrency cap. Three consecutive failures now trip a 30-second cool-down that answers `429 {code: 'cooldown', retryAfterSeconds, failures}` **before** reading a body or calling the model, and a success clears the streak.
-
-**Fixed: `413` killed the socket.** The over-length response used `res.socket.destroy()`, which also tears down anything else riding that keep-alive connection; it now answers with `connection: close` and lets Node discard the unread body.
-
-**Fixed: a rebuilt webserver left the plugin routeless.** Registration was guarded by a bare "already mounted on this context" flag, so a host that replaced its `webServer` service while reusing the context would leave the button on screen and every click 404ing. The guard now compares service identity and re-mounts.
-
-**Also:** a test now pins `DEFAULT_CLIENT_SETTINGS` to `DEFAULT_CONFIG` field by field (the compile-time assertion only covered key names, so a changed host default could drift in silence); CI runs `ubuntu-latest` + `windows-latest` against Node `22.19` + `24` instead of one Linux cell on one Node line; `dsh.client.inject` no longer lists package ids the runtime does not serve (they were soft-skipped anyway, so this is honesty rather than a fix) and keeps only `react-dom`, the one module the bundle actually requires.
-
-Suite: **22 files / 231 cases green**; `lib/` rebuilt, and a clean rebuild is byte-identical; typecheck clean against `0.2.1-rc.2`.
-
-## 0.2.7 (2026-09-30)
-
-Documentation-only version bump; `src/` and `lib/` are identical to 0.2.6 and the shipped bundles are unchanged.
-
-Carries the corrected record of the `0.2.0-rc.2` verification. 0.2.6's notes described that verification as having happened on the global CLI, which understated it: the environment the plugin is actually used in day to day is the dsh **desktop application**, whose `FileVersion` is `0.2.0-rc.2` as well. Both hosts were exercised, and both READMEs now say so. Nothing about the supported range changes — it remains `>=0.1.1-rc.2 <0.3.0`.
-
-## 0.2.6 (2026-09-30)
-
-Verified on the `0.2.x` runtime — including the dsh **desktop application** at `0.2.0-rc.2`, which is the environment the plugin is actually used in day to day. No runtime behavior changes.
-
-**`dsh.engines.dsh` is now `>=0.1.1-rc.2 <0.3.0`.** 0.2.5 deliberately capped the range at `<0.2.0` because `0.2.0-rc.1` / `0.2.0-rc.2` had never been exercised. They have now been, on two hosts running `0.2.0-rc.2` — the desktop app (`D:\deepseek\DeepSeek Harness.exe`, FileVersion `0.2.0-rc.2`) and the global CLI — both completing a real enhancement against a live profile:
-
-- it is **not** listed among the bundles the new runtime refuses (`dshmarket@1.45.0`, `dsh-find-plugin@0.4.0`, and `dsh-better-sidebar@0.15.2` are skipped as peer-incompatible; this plugin passes that gate, thanks to the `>=0.1.1-rc.2` optional `@deepseek-ai/dsh-llm` peer from 0.2.4);
-- no `pending (waiting for service: …)` and no `1 entry did not activate` — the "hard-require nothing" fix from 0.2.3 holds on the new runtime too;
-- the host route answered successfully against the live model (`[prompt-enhance] … out=64 … ok`).
-
-The ceiling moves to `<0.3.0`, which covers the whole `0.2.x` line including its prereleases (`0.2.0-rc.2`, `0.2.1-rc.1`, …) while still refusing a `0.3.x` that has never been seen. Note that `dsh.engines` is advisory metadata for the loader and the plugin manager, not an enforcement gate.
-
-## 0.2.5 (2026-09-30)
-
-Two metadata corrections; no runtime behavior changes.
-
-**`dsh.engines.dsh` is now bounded: `>=0.1.1-rc.2 <0.2.0`.** It previously read `>=0.1.1-rc.2` — an open-ended claim that *any* future harness version is supported, which the project cannot back: boot verification covers `0.1.1-rc.2`, `0.1.2-alpha.3`, and `0.1.7-rc.2`, while the current npm line is already `0.2.0-rc.2`. The ceiling states what has actually been exercised. `<0.2.0` (rather than `<0.1.8`) is deliberate: per semver, a prerelease only matches a range that names a prerelease, so `<0.1.8` would have **excluded the verified `0.1.7-rc.2`** — the exact version the range must keep. `<0.2.0` keeps every `0.1.x` and excludes the unverified `0.2.0-rc.1` / `0.2.0-rc.2`. Widening it after a successful 0.2.x boot is a one-line change; both READMEs now say so and invite reports.
-
-**`dsh.client.inject` no longer lists `@deepseek-ai/dsh-client-ui-settings`.** That entry dated from the layout in which the browser half hard-declared the settings surface — the declaration that produced `web boot: 1 entry did not activate` on a profile without it. The half now reaches `settingsScope` (and `slots`, `locale`) through optional `ctx.inject`, so the module no longer belongs in the required-provider list.
-
-## 0.2.4 (2026-09-30)
-
-Packaging-only follow-up to 0.2.3; no runtime behavior changes.
-
-**`@deepseek-ai/dsh-llm` is now an optional peer with a satisfiable range.** 0.2.3 declared it as `^0.1.1-rc.2`, which no published version can satisfy — the registry serves `0.0.1-rc.1`, one minor below the range — so every install produced a peer warning that could not be resolved, and npm could offer to pull a version whose API does not match. The module is in fact a **runtime module supplied by the dsh host**: both `lib/` bundles keep every package import external and the loader satisfies it in-process, so it is not installable from npm by design. The range is now the honest floor (`>=0.1.1-rc.2`, matching the `dsh.engines.dsh` floor) and the entry is marked `optional` in `peerDependenciesMeta`; the react / react-dom peers stay required. Both READMEs' Requirements sections state where the module comes from.
-
-## 0.2.3 (2026-09-30)
-
-Four real defects fixed — two of them long-standing, two surfaced only by running the plugin against a live `dsh web` host. Patch release: no feature, config, or API additions, and no behavior change on a host that already worked.
-
-**Upstream fix hints never appeared (`error.upstream.<reason>`).** The host sends `reason` in kebab-case (`invalid-credential`, `rate-limit`, `context-window`, `tool-call`, `max-tokens`) while the dictionaries key those hints in camelCase (`error.upstream.invalidCredential`, …). Building the key as `` `error.upstream.${reason}` `` therefore matched only the three single-word reasons (`auth`, `quota`, `empty`) and silently fell back to the generic line for the other five — the specific copy was shipped but unreachable. `UPSTREAM_ERROR_KEYS` is now an explicit, literal-typed table (`PromptEnhanceKey`), covered by a key-set test plus a per-reason render test on the real panel.
-
-**The streamed route never ended its response.** `/prompt-enhance/enhance-stream` wrote its `done` frame but never called `res.end()`, so the chunked body lacked its `0\r\n\r\n` terminator and the connection stayed half-open: a browser client survived only because it returns on the `done` frame and cancels its reader, while any whole-body consumer (`response.text()`, curl, a reverse proxy, a logging middleware) waited forever and keep-alive could never reuse the socket. The route now ends the response after the final frame, guarded against a client that vanished mid-stream. Locked by SSE end-to-end tests that read the body to completion.
-
-**The plugin could take the whole web boot down.** The browser half declared `settingsScope` in its exported `inject`. Cordis loads a plugin *only while every service named there is available*, and that service belongs to the optional settings surface (`@deepseek-ai/dsh-client-ui-settings`), which a minimal profile need not bundle — so the entry sat `pending` forever and the shell reported `web boot: 1 entry did not activate` on a blank page. The half now hard-requires nothing: `slots`, `locale`, and `settingsScope` all ride optional `ctx.inject`, and `apply()` itself touches no service. Degradation is graceful — no settings surface keeps the bundled default mirror, no locale service renders dictionary keys.
-
-**A missing host field unmounted the composer button.** `EnhanceButton` read `state.imageIds.length` and `state.occurrences.length` directly. Those fields are part of the input snapshot in the dsh lines the plugin was written against, but a slot host is not obliged to expose them; reading `.length` off a missing field throws *during render*, and React answers that by unmounting the entire slot entry behind its error boundary (`slot entry crashed in 'conversation.input.right'`) — the composer silently lost the button while the console filled with one repeated stack trace. Both counts, plus `draft`/`phase`, are now read defensively; an absent field only disables the corresponding advisory guard, never the feature.
-
-**Also:** new SSE frame writer with real socket backpressure (`src/sse.ts`) so a slow reader cannot make the socket buffer grow without bound; the context window budget uses the same Unicode code-point gauge as the input cap and truncates without splitting surrogate pairs; `resolveConfig` normalizes a blank `provider`/`model` pair to `undefined` instead of a surviving `''` that downstream read as "an override exists"; the cross-session busy state uses `aria-disabled` with a readable reason instead of a silently disabled button; `ResultPanel`'s focus restore no longer hands focus straight back out under StrictMode; `peerDependencies` now includes `react-dom` and `@deepseek-ai/dsh-llm`; `files` includes the `docs/` screenshot the READMEs reference; CI runs the Node floor (`22.19`).
-
-Tests: 207 across 20 files (new: locale key-set integrity, per-reason error copy, 10 SSE writer units, SSE route end-to-end, boot under a service-less host, and render under a host input state without `imageIds`/`occurrences`).
-
-## 0.2.2 (2026-09-27)
-
-Forward compatibility with the current dsh line (`0.1.5-rc.3` / `0.1.7-rc.2`). On those hosts every enhancement failed with HTTP 502 — this is a bug fix, not a feature: no API, config, or dependency changes, and no behavior change on any already-supported host.
-
-**Default model route.** `defaultRouteOf()` resolves the harness-wide selection through three shapes, tried in order, where each miss means "try the next" and never "fail the enhance request": (1) the `agentDefaultModel` service fetched by name via `ctx.get` and read through `currentSelection()` (dsh >= `0.1.5-rc.3`); (2) the same service reached as a context property, for hosts that inject it for us; (3) the legacy synchronous `settings.get('agent-default-model')` namespace read (<= `0.1.2-rc.1`). `ctx.get` deliberately precedes the property read: cordis raises `cannot get property "agentDefaultModel" without inject` when a property is read without declaring the dependency, and declaring it through `inject` is not survivable for a cross-version plugin — hosts without the service would then never activate the plugin at all. Both the property access and the `currentSelection()` call are individually guarded.
-
-**Store reads.** A new `serviceEntry(ctx, service, key)` helper guards the whole cordis store handshake — service present, `get` actually a function, call wrapped — and `sessionRouteOf()` / `conversationContextOf()` now read sessions through it. A structural interface can promise `get`; only a runtime existence check keeps that promise honest, and a missing reader must degrade to "no entry" instead of `ctx.get(...)?.get is not a function` on the critical path of every request.
-
-Without this change the failure was absolute rather than partial: the route resolution ran on every enhance call, so a single unsupported service shape turned the whole plugin dark.
-
-Verified on a real `0.1.7-rc.2` profile: the layer mounts with zero errors, `POST /prompt-enhance/enhance` reaches the configured LLM (the `Insufficient Balance` response came from the upstream account, which proves model routing worked end to end), `/prompt-enhance/enhance-stream` returns well-formed SSE, and a hostile Origin still gets 403. Docs now list `0.1.7-rc.2` among the boot-verified lines.
-
-Tests: 169 (new regression: settings service without a synchronous reader degrades, sessions store without a reader degrades, selection via property, `ctx.get` preferred over the property, fallback to the legacy namespace, a throwing `currentSelection`, and the cordis `without inject` throw).
-
-## 0.2.1 (2026-09-08)
-
-Internal hardening from the 0.2.0 self-audit — three performance fixes with no behavior change, a privacy clarification in the docs, and a devDependency cleanup. No new features, no config changes.
-
-**Performance.** `checkInputText` now walks the draft once by code point, counting characters and stripping invisible characters in the same pass — the old path allocated a full spread array per validation (`[...text]`, 12 k elements on a maximum-size draft) and then re-scanned with a regex. The rate-window expiry loop in the host route no longer `shift()`s expired stamps one at a time (O(N²) in the worst case at `rateLimitPerMinute = 600`); it finds the first surviving stamp and drains the expired prefix with a single `splice`. `appendDelta` on the browser side now coalesces same-turn deltas into one microtask flush, so a fast model pushing 100+ tokens/s triggers one React re-render per tick instead of one per token — synchronous reads of `getPanel().streaming` between the call and the flush intentionally return the previous value.
-
-**Docs.** The `contextAware` row in both READMEs and the Security Model section now state plainly that with the switch on, the plugin ships up to `contextMaxMessages` turns / `contextMaxChars` characters of the current conversation to the configured LLM verbatim — users with secrets in the active session should turn it off or scope the session first.
-
-**Dependencies.** `@deepseek-ai/dsh-agent` and `@deepseek-ai/dsh-client-runtime` are dropped from devDependencies: `src/` has had zero references to either since the 0.1.10 dual-compat rework (the `slots` / `sessionId` types they carried are satisfied at compile time through the remaining `dsh-client-ui-*` packages, and at runtime by the host itself). No change to `dependencies`, `peerDependencies`, or `engines.dsh`.
-
-Tests: 163 (new regression: 50 same-turn deltas → one `notify`, not 50).
-
-## 0.2.0 (2026-09-08)
-
-Two additive features — context-aware rewrite and incremental output — plus the `stream-text` normalizer hardening those features depend on.
-
-**Context-aware enhancement.** The host now grounds the rewrite in the current conversation: the latest `user`/`assistant` turns (capped by `contextMaxMessages` and `contextMaxChars`) are pulled through `Session.deriveMessages()` (or fall back silently), chosen newest-first inside the character budget, trimmed of `<conversation_context>` framing forgery, and assembled into a `<conversation_context>` block alongside the `<raw_prompt>` user message. Every failure mode (no session, no history, overflow, host throw) yields `undefined` and the call degrades to the original single-prompt enhancement — context is an optimization, never a prerequisite. Hard rules ride along only when context is supplied, so context-free calls keep byte-identical instructions; an explicit `(~250 字中文提示词]` clarifying clause on the model side forbids inventing anything the raw prompt does not support, forbids contradicting user intent, and forbids using the snippet to override the user's explicit constraints. New `Config.streaming` / `Config.contextAware` / `Config.contextMaxMessages` / `Config.contextMaxChars` (all defaulted + schemastery-described); `ClientSettings.streaming` mirrors the streaming default for the browser half.
-
-**Incremental output.** The host route gains `/prompt-enhance/enhance-stream` (SSE, `text/event-stream` with `cache-control: no-cache, no-transform` and `x-accel-buffering: no` so proxies do not buffer it into one blob), shipping the same normalized final body as `done` frames plus per-chunk `delta` frames. The browser half auto-detects streamable responses (`Accept: text/event-stream` + non-empty body) and falls back to the one-shot JSON route when the host or network does not support it — the public API stays one `requestEnhance`. Display-side normalization (`src/shared/stream-text.ts`) withholds a leading fence opener until the newline arrives and absorbs the trailing line break that belongs to a withheld closing fence, so the panel never flashes a blank line ahead of an unwritten closer.
-
-**Other changes.** `EnhanceButton` honors `settings.streaming` (default on) when calling the host; `ui-state` adds a `streamingText` partial body, `appendDelta`, and `settleStreamedResult` for the streamed path. The test base grows to **162** (12 context-window selection, 9 incremental-text normalization, 6 client streaming, plus expanded config / client-settings / component coverage and tightened assertions on the `/enhance` route through `sessionRouteOf`).
-
-## 0.1.11 (2026-09-08)
-
-Fix a defect in the 0.1.10 dual-compat fallback that made the undo bar unreachable on `0.1.2-rc.1`. The two client entries — `EnhanceButton` (`conversation.input.right`) and `UndoBar` (`conversation.input.dock`) — are separate component trees, but the fallback id was minted per component instance, so without a host `sessionId` the button pushed its undo entry under one key (`pe:1`) while the bar peeked another (`pe:2`): apply succeeded, yet the undo affordance never appeared.
-
-`useSessionKey(sessionId, inputActions)` now anchors the fallback on the host's `inputActions` — the same object is handed to every slot of one input zone and is documented as stable per Session — so both halves of one composer resolve the same key via a `WeakMap`. When the host id is present the host id is still used verbatim (unchanged `0.1.1-rc.2` behaviour, and it now follows the prop live rather than freezing at mount). `useCallback` deps in `EnhanceButton` follow the rename (`uiKey`, plus `wireId` for the id actually sent).
-
-Tests: 134 (new rc.1 component regression: `sessionId` absent → route receives `undefined`, apply → undo bar appears → undo restores the original — the exact loop that was silently broken).
-
-## 0.1.10 (2026-09-08)
-
-Dual-host compatibility across the dsh `0.1.1-rc.2` and `0.1.2-rc.1` client API split, with no `package.json` / `engines` change (`engines.dsh` already covers both).
-
-- **Client session key** (new `src/client/session-key.ts`): the input slot owner share (`SessionStandardProps`) carried a `sessionId` on `0.1.1-rc.2`, which `0.1.2-rc.1` dropped (the snapshot hooks `useConversation` / `useInput` / `inputActions` remain). `EnhanceButton` / `UndoBar` now key their panel, undo stack, and shortcut target by `useSessionKey(sessionId)` — the host id when present, otherwise a stable per-mount fallback — so the UI stays correct on both lines. The host route receives the real id only via `serverSessionId(sessionId)`; on `0.1.2-rc.1` it is `undefined`, which degrades to the harness default model route (`sessionRouteOf` undefined branch) — the documented fallback.
-- **Settings registration**: the existing `installSettingsSectionCompat` already probes `ctx.settings.installSection(owner, ns, schema, entry, hooks)` (the `0.1.2` service method) versus the legacy standalone `installSettingsSection` / `settingsNamespace` helpers (the `0.1.1-rc` line, reached through a dynamic import); both paths are exercised by the existing tests. `dsh-client-runtime` stays a devDependency for its cordis declaration merging (`slots` / `sessionId` types), which the `0.1.2` host still satisfies at runtime via `dsh-cordis-client-runner`.
-
-No user-visible behavior change on `0.1.1-rc.2`; the `0.1.2-rc.1` line gains a working client (per-session model routing is unavailable there because the host no longer exposes the session id to the input slots).
-
-## 0.1.9 (2026-09-01)
-
-Fix a silent no-op in the per-session route-priority layer: `Session.requestHeader` is a method on both dsh generations (`requestHeader(): EpochHeader | undefined`), not a property, but `sessionRouteOf()` read it as a field — so the lookup always saw `undefined` and fell through to the default route. The test mocks shaped it as a property, which is exactly why they passed while the real runtime path was dead. The read now probes at runtime (call it when it is a function, otherwise use the value), and `SessionsFace` reflects both shapes. The client half also dropped its leftover type-only empty imports of the removed `dsh-client-runtime` / `dsh-client-ui-conversation` client entry points, and `ClientContext` now resolves from `@deepseek-ai/cordis` directly (the `dsh-client-runtime` devDependency stays for its cordis declaration merging).
-
-Tests: 132 (method-shaped mock, method returning `undefined`, defensive property-shaped value, and a new 7-case `/enhance` command suite — empty arg, disabled, over-length, success, error mapping, missing `commands` service skip, `recordInput`).
-
-## 0.1.8 (2026-09-01)
-
-Compatibility fix found by testing the plugin on a real 0.1.2-alpha.3 harness, not by inspection: `@deepseek-ai/dsh-settings` moved its registration API — the alpha line dropped the standalone `installSettingsSection()` / `settingsNamespace()` exports and exposes the same wiring as `ctx.settings.installSection(owner, ns, …)`. Because the host half imported those names statically, the plugin failed at module load with `SyntaxError: … does not provide an export named 'installSettingsSection'`, taking the whole web profile down; 0.1.7 fixed the inject list but still crashed there.
-
-Registration now goes through `ctx.inject(['settings'])` — the service-availability gate both generations use internally — with a runtime probe picking the API the mounted service speaks, and the legacy helpers reached through a dynamic import so an alpha build never evaluates the removed names. Verified on a real alpha.3 profile: the layer mounts, the route answers, the client bundle builds with all four injected packages resolved, and the settings service (`dsh-settings-file`) is present so the alpha branch is the one taken.
-
-Tests: 122 (alpha `installSection` branch, legacy standalone-helper fallback, no-service case, and a load-time guard that fails if a static import of the removed names ever comes back).
-
-## 0.1.7 (2026-09-01)
-
-Compatibility fix for the 0.1.2-alpha harness cohort, reported in the upstream market review (zhu1090093659/dsh-web#1282): `@deepseek-ai/dsh-client-runtime` was removed upstream (it never published an alpha), so its entry in `dsh.client.inject` failed to resolve on alpha hosts and the plugin would not load. The entry is gone from the inject list — the browser half only ever used the package as a type-only import (`import type`), and the compiled `lib/client.js` has zero runtime references to it, so nothing changes at runtime. The remaining 4 injected packages all publish alphas and stay. `engines.dsh` tightens from `>=0.1.1-rc.1` to `>=0.1.1-rc.2`, the version actually tested (rc.1 predates the runtime package). The devDependency is kept for compile-time type checking only.
-
-## 0.1.6 (2026-08-31)
-
-Errors are now structured: the host sends `{ code, params?, message? }` where `message` is only an optional diagnostic detail (provider raw text, config errors) — the browser renders its localized primary line from `code`/`params` via the locale dictionaries, so non-Chinese UIs no longer see Chinese host copy. `upstream` errors carry an optional `reason` (auth / quota / rateLimit / empty / contextWindow / toolCall / maxTokens / invalidCredential) that picks a specific fix hint; over-length rejections carry `{ count, max }` and reuse the too-long input message. A host-side `formatEnhanceError()` renders the same errors for the `/enhance` command plane, which has no browser dictionary.
-
-Rate limiting counts successful calls only: a stamp lands after the 200 is written, so a run of failures (timeouts, upstream errors, cancellations) no longer burns the user's per-minute window and locks them out right when the model recovers. The concurrency cap still bounds in-flight calls regardless of outcome. `Retry-After` and the `rate-limit` params stay in sync.
-
-Undo stack: the per-session store now has a global entry cap (default 60) with least-recently-written-session eviction, so many long-lived sessions cannot accumulate undo entries without bound (per-session depth 3 unchanged).
-
-Docs: error-code reference table, troubleshooting section, and the success-only rate-window semantics in the zh README; the browser half's single-panel concurrency (1 in-flight request) vs the host `maxConcurrent` cap is documented rather than changed.
-
-Tests: 118 (failed calls do not consume the rate window, structured error params, host-side error rendering, undo-stack global-cap eviction).
-
-## 0.1.5 (2026-08-31)
-
-Features: a `strategyMode` setting (`replace-default` | `extend-default`, default `replace-default` for backward compatibility) — a non-empty custom `systemPrompt` either swaps the built-in strategy out entirely (`replace-default`, the earlier behavior) or is appended after it (`extend-default`), so the built-in hard rules stay in force. Host call logs no longer record the provider/model route, which can carry internal gateway or project identifiers — request id and sizes only.
-
-Security/resource: `Content-Length` fast reject answers `413` before a single body byte is read (the streamed cap stays as the chunked-body backstop), and the connection closes after the refusal so a declared-but-never-sent body cannot pin the socket open. Re-applying the plugin on one context no longer stacks a second admission gate, which would have silently doubled the effective limits. The rate cap and the concurrency cap now answer distinct codes (`rate-limit` / `concurrency-limit`) — the rate branch sends a precise `Retry-After` computed from the sliding window; the concurrency branch sends none, because a busy slot frees whenever an in-flight call settles.
-
-Consistency: input lengths are counted by one shared `countText()` (Unicode code points) everywhere — validation, error copy, and host logs no longer disagree on emoji or composed characters; copy now says 字符/characters and states it is a character count, not a token count.
-
-Docs: single-process scope of the admission caps, undo-stack lifecycle (page memory, 3 per session), the `strategyMode` combination semantics for `systemPrompt`, request-level timeout ownership (host/Node, not the plugin), and a corrected 0.1.2 note on oversized bodies.
-
-Tests: 112 (Content-Length fast reject, no-Origin local caller, concurrency slot returned after a mid-flight disconnect, one gate per context, degenerate and attacker-shaped Origins, localhost look-alike Hosts, code-point counting, strategy modes).
-
-## 0.1.4 (2026-08-29)
-
-Security/resource: `Origin` gate on the enhance route (cross-site fire-and-forget POSTs are refused), host-side concurrency cap (`maxConcurrent`, default 2) and sliding-window rate limit (`rateLimitPerMinute`, default 10) answering `429`, structured single-line call logs (request id, route, input/output sizes, error code — never the prompt text), `X-Forwarded-For` / `Forwarded` requests refused.
-
-Robustness: `resolveConfig` deep runtime validation (types, finiteness, ranges, integrality) with provider/model stored trimmed; strict client envelope parsing (provider/model/elapsedMs validated, unknown error codes normalized); input length counted in Unicode code points; single-line and CRLF fence normalization.
-
-Docs: security and language-consistency statements softened to best-effort wording, compatibility matrix, install smoke checklist, `/enhance` cancellation note, evidence-binding rule in the default strategy.
-
-Tests: 97 (admission gate 429s, Origin gate, deep config validation, route-resolution trimming, single-line/CRLF fences, code-point counts).
-
-## 0.1.2 (2026-08-29)
-
-Security: `Host` header allowlist on the enhance route (defeats DNS rebinding), `cache-control: no-store`, `<raw_prompt>` framing neutralizes literal closing tags, Security Model docs section (en/zh).
-
-Usability: light theme via theme-scoped variables + `prefers-color-scheme`, server errors localized by stable code with the host message as detail line, shortcut parsing requires at least one modifier, dialog accessibility (`aria-modal`, focus trap, IME-safe Escape).
-
-Fixes: applying over a draft edited during the request keeps the current draft restorable via undo (plus a stale-content warning both ways), busy-click no longer orphans the running request, disconnect abort uses a version-safe `res.close` + `writableEnded` guard, timed-out streams finalize their iterators, oversized streamed bodies answer `413` without destroying the connection (the route still owes the client a deliverable response), route validates its exact path, disabled state short-circuits before body read, unknown legacy config keys stripped, multi-session shortcut fallback.
-
-Tests: 78 (component suite with jsdom/RTL, real-socket disconnect regression, loopback/Host fence units, prompt-framing units). Shared orchestration extracted (`orchestrate.ts`).
-
-## 0.1.1 (2026-08-29)
-
-Docs: bilingual README (English + 简体中文) with architecture walkthrough, configuration table, error matrix, development guide, FAQ; evidence screenshot; package metadata (keywords, repository, homepage).
-
-## 0.1.0 (2026-08-29)
-
-Initial release: composer enhance button (`conversation.input.right`), before/after preview panel, one-click undo bar (`conversation.input.dock`), `/enhance` slash command, configurable global shortcut, settings section rendered in Settings → 插件配置, host route via `ctx.llm` with model routing (settings pair → session model → harness default), 56 tests.
+- Boost calls no longer pass the session id to the model call. With providers that keep one live process per session (e.g. Oh My Claude), the rewrite used to run inside the user's conversation, show up as a turn, and fail with "a turn is already running in this session" while the session was busy.

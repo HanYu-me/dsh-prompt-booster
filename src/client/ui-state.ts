@@ -5,7 +5,7 @@
  * keyboard shortcut can find the composer the user is working in. Every
  * mutation notifies the external-store subscribers the React components
  * read through.
- * @module dsh-prompt-enhance/client/ui-state
+ * @module dsh-prompt-boost/client/ui-state
  */
 
 import type { EnhanceError, EnhanceResult } from '../shared/protocol'
@@ -29,6 +29,14 @@ export interface PanelState {
    * full body, which is what the user actually applies.
    */
   readonly streaming?: string
+  /** The boost direction this panel runs (shown in the header, reused by retry). */
+  readonly direction?: PanelDirection
+}
+
+/** The direction a panel belongs to: its wire id and the label shown. */
+export interface PanelDirection {
+  readonly id: string
+  readonly label: string
 }
 
 /** One mounted composer trigger (the input.right button's session presence). */
@@ -162,15 +170,20 @@ export function openLoading(state: Omit<PanelState, 'phase' | 'result' | 'error'
 /** Settle the open panel with a result. Ignored when the panel moved on. */
 export function settleResult(sessionId: string, result: EnhanceResult): void {
   if (panelState?.sessionId !== sessionId || panelState.phase !== 'loading') return
-  panelState = { sessionId, phase: 'result', original: panelState.original, result }
+  panelState = { sessionId, phase: 'result', original: panelState.original, result, ...directionOf(panelState) }
   notify()
 }
 
 /** Settle the open panel with an error. Ignored when the panel moved on. */
 export function settleError(sessionId: string, error: EnhanceError): void {
   if (panelState?.sessionId !== sessionId || panelState.phase !== 'loading') return
-  panelState = { sessionId, phase: 'error', original: panelState.original, error }
+  panelState = { sessionId, phase: 'error', original: panelState.original, error, ...directionOf(panelState) }
   notify()
+}
+
+/** Carry the direction from one panel phase to the next. */
+function directionOf(state: PanelState): { direction?: PanelDirection } {
+  return state.direction !== undefined ? { direction: state.direction } : {}
 }
 
 /**
@@ -190,9 +203,9 @@ export function appendDelta(sessionId: string, text: string): void {
 }
 
 /** Open the panel directly in the error phase (local validation failures). */
-export function openError(sessionId: string, original: string, error: EnhanceError): void {
+export function openError(sessionId: string, original: string, error: EnhanceError, direction?: PanelDirection): void {
   abortOf(panelState)
-  panelState = { sessionId, phase: 'error', original, error }
+  panelState = { sessionId, phase: 'error', original, error, ...(direction !== undefined ? { direction } : {}) }
   notify()
 }
 
@@ -270,4 +283,54 @@ export function shortcutTarget(): (() => void) | undefined {
   }
   const fallback = lastMountedSession !== undefined ? sessions.get(lastMountedSession) : undefined
   return fallback === undefined ? undefined : () => fallback.run()
+}
+
+/** One in-flight quick boost (no panel): which composer, and how to cancel it. */
+export interface QuickState {
+  readonly sessionId: string
+  readonly abort: () => void
+}
+
+let quickState: QuickState | undefined
+
+/** The in-flight quick boost, if any. */
+export function getQuick(): QuickState | undefined {
+  return quickState
+}
+
+/** Mark a quick boost as running. */
+export function startQuick(state: QuickState): void {
+  quickState = state
+  notify()
+}
+
+/** Clear the running quick boost of a session (no-op for another session). */
+export function endQuick(sessionId: string): void {
+  if (quickState?.sessionId !== sessionId) return
+  quickState = undefined
+  notify()
+}
+
+/** A short message shown above the composer instead of a popup. */
+export interface Notice {
+  readonly text: string
+  /** The draft when the notice was raised; the notice hides once the draft changes. */
+  readonly draft: string
+}
+
+const notices = new Map<string, Notice>()
+
+/** Show (or clear, with undefined) the notice of a session. */
+export function setNotice(sessionId: string, notice: Notice | undefined): void {
+  if (notice === undefined) {
+    if (!notices.delete(sessionId)) return
+  } else {
+    notices.set(sessionId, notice)
+  }
+  notify()
+}
+
+/** The notice of a session, if any. */
+export function getNotice(sessionId: string): Notice | undefined {
+  return notices.get(sessionId)
 }

@@ -3,9 +3,10 @@
  * enhanced result, with 回填 / 复制 / 取消 in the result phase, a cancellable
  * spinner in the loading phase, and a retryable error message otherwise.
  * Rendered through a portal into document.body by the button component.
- * @module dsh-prompt-enhance/client/ResultPanel
+ * @module dsh-prompt-boost/client/ResultPanel
  */
 
+import { AlertIcon, CloseIcon, ModeIcon, SparkleIcon, SpinnerIcon } from './icons'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EnhanceError } from '../shared/protocol'
@@ -15,7 +16,7 @@ import type { PanelState } from './ui-state'
 /** Props of the preview panel. */
 export interface ResultPanelProps {
   state: PanelState
-  t: TranslateNS<'prompt-enhance'>
+  t: TranslateNS<'prompt-boost'>
   /** Fill the enhanced text back into the composer (the button owns setDraft). */
   onApply: () => void
   /** Close without touching the composer (also aborts an in-flight call). */
@@ -59,7 +60,7 @@ export const UPSTREAM_ERROR_KEYS: Record<string, PromptEnhanceKey> = {
  * client-side guard shows. The server's `message` (provider raw text, config
  * errors) renders beneath as the diagnostic detail line.
  */
-function localizedErrorMessage(
+export function localizedErrorMessage(
   t: ResultPanelProps['t'],
   code: EnhanceError['code'],
   params: EnhanceError['params'],
@@ -199,19 +200,27 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
         tabIndex={-1}
       >
         <header className="dsh-pe-head">
-          <span>✨ {t('panel.title')}</span>
+          <span className="dsh-pe-head-mark"><SparkleIcon size={14} /></span>
+          <span className="dsh-pe-head-title">{t('panel.title')}</span>
+          {state.direction !== undefined && (
+            <span className="dsh-pe-chip">
+              <ModeIcon id={state.direction.id} size={12} />
+              {t('panel.direction', { label: state.direction.label })}
+            </span>
+          )}
+          <span className="dsh-pe-grow" />
           {state.phase === 'result' && state.result !== undefined && (
-            <span className="dsh-pe-meta">
+            <span className="dsh-pe-meta" title={`${state.result.provider} / ${state.result.model}`}>
               {t('panel.model', { provider: state.result.provider, model: state.result.model })} · {t('panel.elapsed', { ms: formatMs(state.result.elapsedMs) })}
             </span>
           )}
-          <button type="button" className="dsh-pe-close" aria-label={t('panel.close')} onClick={onCancel}>✕</button>
+          <button type="button" className="dsh-pe-icon-btn" aria-label={t('panel.close')} onClick={onCancel}><CloseIcon size={14} /></button>
         </header>
         {state.phase === 'loading' && (
           <div className="dsh-pe-loading">
             {state.streaming === undefined || state.streaming === '' ? (
               <>
-                <div className="dsh-pe-spin" aria-hidden />
+                <SpinnerIcon size={22} className="dsh-pe-spinning dsh-pe-loading-spin" />
                 <div>{t('panel.loading')}</div>
                 <div className="dsh-pe-hint">{t('panel.loading.hint')}</div>
               </>
@@ -220,7 +229,7 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
               // normalized full body the moment the call settles.
               <div className="dsh-pe-stream">
                 <div className="dsh-pe-col-title">
-                  <span className="dsh-pe-spin small" aria-hidden />
+                  <SpinnerIcon size={12} className="dsh-pe-spinning" />
                   {t('panel.streaming')}
                 </div>
                 <pre className="dsh-pe-col-text">{state.streaming}</pre>
@@ -230,6 +239,8 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
         )}
         {state.phase === 'error' && state.error !== undefined && (
           <div className="dsh-pe-error">
+            <AlertIcon size={16} className="dsh-pe-error-icon" />
+            <div className="dsh-pe-error-copy">
             {state.error.localized !== undefined ? (
               // Client-side guard failures carry their own pre-localized copy.
               <div>{state.error.localized}</div>
@@ -241,6 +252,7 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
                 )}
               </>
             )}
+            </div>
           </div>
         )}
         {state.phase === 'result' && state.result !== undefined && (
@@ -249,30 +261,30 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
               <div className="dsh-pe-col-title">{t('panel.original')}</div>
               <pre className="dsh-pe-col-text">{state.original}</pre>
             </div>
-            <div className="dsh-pe-col">
-              <div className="dsh-pe-col-title">{t('panel.enhanced')}</div>
+            <div className="dsh-pe-col is-result">
+              <div className="dsh-pe-col-title"><SparkleIcon size={12} />{t('panel.enhanced')}</div>
               <pre className="dsh-pe-col-text">{state.result.text}</pre>
             </div>
           </div>
         )}
         {state.phase === 'result' && state.stale && (
-          <div className="dsh-pe-stale">⚠ {t('panel.stale.warn')}</div>
+          <div className="dsh-pe-stale"><AlertIcon size={14} />{t('panel.stale.warn')}</div>
         )}
         <footer className="dsh-pe-foot">
           <span className="dsh-pe-grow" />
           {state.phase === 'error' && retryable(state.error?.code) && onRetry !== undefined && (
-            <button type="button" className="dsh-pe-btn-action plain" onClick={onRetry}>{t('panel.retry')}</button>
+            <button type="button" className="dsh-pe-action ghost" onClick={onRetry}>{t('panel.retry')}</button>
           )}
           {state.phase === 'result' && (
             <>
-              <button type="button" className="dsh-pe-btn-action plain" onClick={copy}>
+              <button type="button" className="dsh-pe-action ghost" onClick={copy}>
                 {copied === 'ok' ? t('panel.copied') : copied === 'failed' ? t('panel.copyFailed') : t('panel.copy')}
               </button>
-              <button type="button" className="dsh-pe-btn-action primary" onClick={onApply}>{t('panel.apply')}</button>
+              <button type="button" className="dsh-pe-action primary" onClick={onApply}>{t('panel.apply')}</button>
             </>
           )}
           {state.phase !== 'result' && (
-            <button type="button" className="dsh-pe-btn-action plain" onClick={onCancel}>
+            <button type="button" className="dsh-pe-action ghost" onClick={onCancel}>
               {state.phase === 'loading' ? t('panel.cancel') : t('panel.close')}
             </button>
           )}

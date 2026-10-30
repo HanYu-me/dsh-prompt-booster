@@ -7,7 +7,7 @@
  * (`KeyA` / `Digit1` / `F9`), so shifted combinations (`ctrl+shift+1`,
  * where the browser reports `event.key === '!'`) keep working, and the
  * `event.key` comparison remains as a fallback.
- * @module dsh-prompt-enhance/client/shortcut
+ * @module dsh-prompt-boost/client/shortcut
  */
 
 /** One parsed shortcut combo. */

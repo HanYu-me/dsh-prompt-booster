@@ -3,9 +3,10 @@
  * and the /enhance slash command): route resolution by precedence, LLM
  * service lookup, one enhanceText call. Keeping both entries on this path
  * prevents their behavior from drifting.
- * @module dsh-prompt-enhance/orchestrate
+ * @module dsh-prompt-boost/orchestrate
  */
 
+import { type Direction, withDirection } from './shared/directions'
 import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from 'node:crypto'
 import { effectiveSystemPrompt, type Config } from './config'
@@ -215,6 +216,10 @@ export interface RunEnhanceOptions {
   context?: string
   /** Receives each text delta for incremental display (display only; may be async). */
   onDelta?: (delta: string) => void | Promise<void>
+  /** The boost direction, already resolved by the caller; absent means none. */
+  direction?: Direction
+  /** A model chosen in the menu, already checked against the catalog; wins over every other source. */
+  routeOverride?: RoutePair
 }
 
 /**
@@ -233,7 +238,7 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
   const requestId = randomUUID().slice(0, 8)
   const started = Date.now()
   try {
-    const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx))
+    const route = options.routeOverride ?? resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx))
     if (route === undefined) {
       // No detail line: the fix instructions are the localized primary copy.
       throw new EnhanceFailure({ code: 'unconfigured' })
@@ -249,7 +254,12 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
       route,
       // The context rules ride along ONLY when there is context to reason
       // about, so a context-free call keeps byte-identical instructions.
-      system: effectiveSystemPrompt(config, context === undefined ? DEFAULT_SYSTEM_PROMPT : withContextRules(DEFAULT_SYSTEM_PROMPT)),
+      // The direction rides last, after any operator additions, so it can
+      // narrow the strategy without losing the built-in hard rules.
+      system: withDirection(
+        effectiveSystemPrompt(config, context === undefined ? DEFAULT_SYSTEM_PROMPT : withContextRules(DEFAULT_SYSTEM_PROMPT)),
+        options.direction,
+      ),
       text: options.text,
       temperature: config.temperature,
       maxTokens: config.maxOutputTokens,
@@ -259,11 +269,11 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
       ...(options.onDelta !== undefined ? { onDelta: options.onDelta } : {}),
       ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
     })
-    console.info(`[prompt-enhance] ${requestId} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === undefined ? 0 : 1} ${result.elapsedMs}ms ok`)
+    console.info(`[prompt-boost] ${requestId} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === undefined ? 0 : 1} dir=${options.direction?.id ?? '-'} ${result.elapsedMs}ms ok`)
     return result
   } catch (error) {
     const wire = toEnhanceError(error)
-    console.info(`[prompt-enhance] ${requestId} in=${countText(options.text)} error=${wire.code} ${Date.now() - started}ms`)
+    console.info(`[prompt-boost] ${requestId} in=${countText(options.text)} error=${wire.code} ${Date.now() - started}ms`)
     throw error
   }
 }

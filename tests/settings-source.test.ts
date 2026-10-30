@@ -14,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSource, type LegacySectionHooks } from '../src/settings-source'
 import { PROMPT_ENHANCE_ROW_IDS } from '../src/shared/protocol'
 
-const NAMESPACE = 'prompt-enhance'
+const NAMESPACE = 'prompt-boost'
 const FALLBACK = { enabled: true, maxInputChars: 12000, shortcut: 'ctrl+alt+e', streaming: true }
 
 /** Build a context that mounts exactly the services it is given. */
@@ -76,13 +76,13 @@ describe('installSettingsSource: SettingsForms (dsh 0.2.x)', () => {
     const settings = {
       describe: (): unknown[] => [
         { ns: 'llm-deepseek', value: {} },
-        { ns: 'web-ui-prompt-enhance', value: { enabled: false } },
+        { ns: 'web-ui-prompt-boost', value: { enabled: false } },
       ],
     }
     const { ctx } = contextWith({ settings })
     const source = installSettingsSource(ctx, options().value)
     expect(source.read()).toMatchObject({ enabled: false })
-    expect(source.rowId()).toBe('web-ui-prompt-enhance')
+    expect(source.rowId()).toBe('web-ui-prompt-boost')
   })
 
   it('falls back to the composition entry when describe() throws', () => {

@@ -8,7 +8,7 @@
  * have. Two things are withheld until more text (or the end) resolves them:
  * a leading fence opener, and a trailing run of backticks that might turn out
  * to be a fence closer.
- * @module dsh-prompt-enhance/shared/stream-text
+ * @module dsh-prompt-boost/shared/stream-text
  */
 
 /** One streaming display normalizer. */

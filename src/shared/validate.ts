@@ -3,7 +3,7 @@
  * the button can refuse locally with the exact verdict the host would send.
  * Messages are locale-owned: this module returns structured verdicts, the
  * host formats them in Chinese, the client passes them through its `t` seat.
- * @module dsh-prompt-enhance/shared/validate
+ * @module dsh-prompt-boost/shared/validate
  */
 
 /** Verdict of one input check. */
