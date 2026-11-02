@@ -1,0 +1,14 @@
+dsh-prompt-booster
+Copyright 2026 Yu Han
+
+This product includes software derived from dsh-prompt-enhance
+(https://github.com/rongxingda/dsh-prompt-enhance), Copyright rongxingda,
+licensed under the Apache License, Version 2.0.
+
+dsh-prompt-booster is based on dsh-prompt-enhance 0.3.2. Files carried over
+from it have been modified by Yu Han (2026). The modifications include: boost
+modes and the right-click mode menu, the mode editor and host-side mode
+storage, per-browser boost-model choice, the light-touch quick boost applied
+in place, a fix keeping boost calls out of the conversation, a redesigned UI
+on dsh design tokens, and renaming the plugin to prompt-boost /
+dsh-prompt-booster. See CHANGELOG.md for details.

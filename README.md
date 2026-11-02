@@ -4,6 +4,8 @@ A prompt booster for the [DeepSeek Harness](https://github.com/deepseek-ai/deeps
 
 English | [简体中文](./README.zh-CN.md)
 
+> This plugin is a modified version of [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) 0.3.2 by [rongxingda](https://github.com/rongxingda) (Apache-2.0). The preview panel, undo, draft guards, rate limits and model-call plumbing come from the original; this project adds boost modes, the mode editor, boost-model choice and the in-place quick boost. See the [CHANGELOG](./CHANGELOG.md) and [NOTICE](./NOTICE) for what changed.
+
 
 ![Right-click menu: boost modes and the boost model](docs/images/menu-light.png)
 
@@ -95,4 +97,9 @@ Browser-half changes need a rebuild and a page reload; host-half changes need a 
 
 ## License
 
-[Apache-2.0](./LICENSE) © Yu Han
+[Apache-2.0](./LICENSE).
+
+- Original work: [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) © rongxingda, Apache-2.0.
+- Modifications © 2026 Yu Han, also released under Apache-2.0.
+
+Attribution and the list of changes are in [NOTICE](./NOTICE). Thanks to rongxingda for the original implementation.

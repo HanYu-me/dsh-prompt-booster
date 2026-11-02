@@ -4,6 +4,8 @@
 
 [English](./README.md) | 简体中文
 
+> 本插件基于 [rongxingda](https://github.com/rongxingda) 的 [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) 0.3.2（Apache-2.0）修改而来。预览面板、撤销、草稿保护、限流和模型调用等基础能力来自原插件；在此之上新增了提升模式、模式编辑器、提升模型选择和直接替换的初步提升等功能，具体改动见 [CHANGELOG](./CHANGELOG.md) 和 [NOTICE](./NOTICE)。
+
 
 ![右键菜单：提升模式列表与提升模型](docs/images/menu-light.png)
 
@@ -95,4 +97,9 @@ dsh plugin --profile web add link:$PWD
 
 ## 许可
 
-[Apache-2.0](./LICENSE) © Yu Han
+[Apache-2.0](./LICENSE)。
+
+- 原作品：[dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) © rongxingda，Apache-2.0。
+- 修改部分 © 2026 Yu Han，同样以 Apache-2.0 发布。
+
+署名与修改说明见 [NOTICE](./NOTICE)。感谢 rongxingda 的原始实现。

@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.1.1 — 2026-11-02
+
+- Attribution: added NOTICE and README credits for [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) by rongxingda, which this plugin is based on, as the Apache-2.0 license requires. No code changes.
+
 ## 0.1.0 — 2026-10-30
 
-First release.
+First release, based on [dsh-prompt-enhance](https://github.com/rongxingda/dsh-prompt-enhance) 0.3.2 by rongxingda (Apache-2.0). Changes on top of it:
 
 - Composer button: left-click (or `Ctrl+Alt+E`) runs the quick boost, a light-touch rewrite (smoother wording, a few implied details, within ~1.5x the original, no added structure) applied in place, with a progress strip, undo, cancel-on-second-click, and errors shown above the composer (`quickApply`).
 - Right-click (long press on touch, or the keyboard context-menu key) opens a mode menu with eight built-in modes: quick boost (`general`), concise, structured, fill in details, coding task, research, academic writing, rewrite in English. Modes other than the quick boost show an original / result preview with apply, copy and undo.
